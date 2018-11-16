@@ -52,7 +52,7 @@ namespace TransformFunctions
                     _xmlDoc.DocumentElement.AppendChild(el);
 
                     // For each field in the line of HL7
-                    for (int a = 0; a < sFields.Length; a++)
+                    for (int a = 1; a < sFields.Length; a++)
                     {
                         // Create a new element
                         XmlElement fieldEl = _xmlDoc.CreateElement(sFields[0] +
@@ -90,7 +90,7 @@ namespace TransformFunctions
 
                                         XmlElement componentEl = _xmlDoc.CreateElement(sFields[0] +
                                                 "." + a.ToString() +
-                                                "." + b.ToString());
+                                                "." + (b + 1).ToString());
 
 
 
@@ -112,9 +112,9 @@ namespace TransformFunctions
                                                         XmlElement subComponentRepEl =
                                                             _xmlDoc.CreateElement(sFields[0] +
                                                             "." + a.ToString() +
-                                                            "." + b.ToString() +
-                                                            "." + c.ToString() +
-                                                            "." + d.ToString());
+                                                            "." + (b + 1).ToString() +
+                                                            "." + (c + 1).ToString() +
+                                                            "." + (d + 1).ToString());
                                                         subComponentRepEl.InnerText =
                                                                 subComponentRepetitions[d];
                                                         componentEl.AppendChild(subComponentRepEl);
@@ -125,7 +125,7 @@ namespace TransformFunctions
                                                     XmlElement subComponentEl =
                                                         _xmlDoc.CreateElement(sFields[0] +
                                                         "." + a.ToString() +
-                                                        "." + b.ToString() + "." + c.ToString());
+                                                        "." + (b + 1).ToString() + "." + (c + 1).ToString());
                                                     subComponentEl.InnerText = subComponents[c];
                                                     componentEl.AppendChild(subComponentEl);
 
@@ -153,8 +153,8 @@ namespace TransformFunctions
                                                 {
                                                     repetitionEl =
                                                       _xmlDoc.CreateElement(sFields[0] + "." + (sRepeatingComponent.Length > 1 ? "." + rc.ToString() : ".") +
-                                                      a.ToString() + "." + b.ToString() +
-                                                      "." + c.ToString());
+                                                      a.ToString() + "." + (b + 1).ToString() +
+                                                      "." + (c + 1).ToString());
                                                     repetitionEl.InnerText = sRepetitions[c];
                                                     componentEl.AppendChild(repetitionEl);
                                                 }
@@ -217,7 +217,14 @@ namespace TransformFunctions
         /// <span class="code-SummaryComment"><returns></returns></span>
         private static string[] GetMessgeFields(string s)
         {
-            return s.Split('|');
+            string[] s1 = s.Split('|');
+            if (s1[0].Equals("MSH", StringComparison.InvariantCultureIgnoreCase))
+            {
+                List<string> li = new List<string>(s1);
+                li.Insert(0, s1[0]);
+                return li.ToArray();
+            }
+            return s1;
         }
 
         /// <span class="code-SummaryComment"><summary></span>

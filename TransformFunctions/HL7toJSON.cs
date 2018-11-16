@@ -7,7 +7,7 @@ using Microsoft.Azure.WebJobs.Extensions.Http;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
-
+using Newtonsoft.Json.Linq;
 namespace TransformFunctions
 {
     public static class HL7toJSON
@@ -23,7 +23,8 @@ namespace TransformFunctions
             try
             {
                 json = JsonConvert.SerializeXmlNode(HL7ToXmlConverter.ConvertToXml(requestBody));
-                return new JsonResult(HL7ToXmlConverter.ConvertToXml(requestBody));
+                JObject o = JObject.Parse(json);
+                return new JsonResult(o["hl7message"]);
 
 
             } catch (Exception e)
