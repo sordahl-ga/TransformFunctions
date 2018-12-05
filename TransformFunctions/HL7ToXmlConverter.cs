@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -8,9 +10,17 @@ namespace TransformFunctions
 {
     public static class HL7ToXmlConverter
     {
-        // This is the XML document we'll be creating
-        private static XmlDocument _xmlDoc;
-
+        // <span class="code-SummaryComment"><summary></span>
+        /// Converts an HL7 message into a JSON Object from it's XML representation of the same message.
+        /// <span class="code-SummaryComment"></summary></span>
+        /// <span class="code-SummaryComment"><param name="sHL7">The HL7 to convert</param></span>
+        /// <span class="code-SummaryComment"><returns></returns></span>
+        public static string ConvertToJSON (string sHL7)
+        {
+            string json = JsonConvert.SerializeXmlNode(HL7ToXmlConverter.ConvertToXml(sHL7));
+            JObject o = JObject.Parse(json);
+            return JsonConvert.SerializeObject(o["hl7message"]);
+        }
         /// <span class="code-SummaryComment"><summary></span>
         /// Converts an HL7 message into an XML representation of the same message.
         /// <span class="code-SummaryComment"></summary></span>
@@ -18,6 +28,7 @@ namespace TransformFunctions
         /// <span class="code-SummaryComment"><returns></returns></span>
         public static XmlDocument ConvertToXml(string sHL7)
         {
+            XmlDocument _xmlDoc = null;
             // Go and create the base XML
             _xmlDoc = CreateXmlDoc();
 
