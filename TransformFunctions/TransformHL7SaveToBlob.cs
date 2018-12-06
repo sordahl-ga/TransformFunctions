@@ -28,7 +28,7 @@ namespace TransformFunctions
             {
                 json = HL7ToXmlConverter.ConvertToJSON(requestBody);
                 DateTime now = DateTime.Now;
-                string ds = now.Year.ToString() + "/" + now.Month.ToString() + "/" + now.Day.ToString() + "/" + now.Hour.ToString();
+                string ds = now.Year.ToString() + "/" + now.Month.ToString("D2") + "/" + now.Day.ToString("D2") + "/" + now.Hour.ToString("D2");
                 await container.CreateIfNotExistsAsync();
                 CloudBlockBlob blockBlob = container.GetBlockBlobReference(ds + "/" + coid.ToLower() + ".json");
                 using (var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json), writable: false))
