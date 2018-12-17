@@ -11,22 +11,50 @@ namespace TransformFunctions
     public static class HL7ToXmlConverter
     {
         // <span class="code-SummaryComment"><summary></span>
+        /// Converts an HL7 message into a JOject Object from it's XML representation of the same message.
+        /// <span class="code-SummaryComment"></summary></span>
+        /// <span class="code-SummaryComment"><param name="sHL7">The HL7 to convert</param></span>
+        /// <span class="code-SummaryComment"><returns>JObject with root of hl7message</returns></span>
+        public static JObject ConvertToJObject(string sHL7)
+        {
+            string json = JsonConvert.SerializeXmlNode(HL7ToXmlConverter.ConvertToXmlDocument(sHL7));
+            JObject o = JObject.Parse(json);
+            return o;
+        }
+        // <span class="code-SummaryComment"><summary></span>
+        /// Converts a JObject hl7 message into a JSON String.
+        /// <span class="code-SummaryComment"></summary></span>
+        /// <span class="code-SummaryComment"><param name="o">The JObject with hl7message root to convert</param></span>
+        /// <span class="code-SummaryComment"><returns></returns></span>
+        public static string ConvertToJSON(JObject o)
+        {
+            return JsonConvert.SerializeObject(o["hl7message"]);
+        }
+        // <span class="code-SummaryComment"><summary></span>
         /// Converts an HL7 message into a JSON Object from it's XML representation of the same message.
         /// <span class="code-SummaryComment"></summary></span>
         /// <span class="code-SummaryComment"><param name="sHL7">The HL7 to convert</param></span>
         /// <span class="code-SummaryComment"><returns></returns></span>
-        public static string ConvertToJSON (string sHL7)
+        public static string ConvertToJSON(string sHL7)
         {
-            string json = JsonConvert.SerializeXmlNode(HL7ToXmlConverter.ConvertToXml(sHL7));
-            JObject o = JObject.Parse(json);
+            JObject o = HL7ToXmlConverter.ConvertToJObject(sHL7);
             return JsonConvert.SerializeObject(o["hl7message"]);
         }
         /// <span class="code-SummaryComment"><summary></span>
         /// Converts an HL7 message into an XML representation of the same message.
         /// <span class="code-SummaryComment"></summary></span>
         /// <span class="code-SummaryComment"><param name="sHL7">The HL7 to convert</param></span>
-        /// <span class="code-SummaryComment"><returns></returns></span>
-        public static XmlDocument ConvertToXml(string sHL7)
+        /// <span class="code-SummaryComment"><returns>XML String with root of hl7message</returns></span>
+        public static string ConvertToXml(string sHL7)
+        {
+            return HL7ToXmlConverter.ConvertToXmlDocument(sHL7).OuterXml;
+        }
+        /// <span class="code-SummaryComment"><summary></span>
+        /// Converts an HL7 message into an XMLDocument representation of the same message.
+        /// <span class="code-SummaryComment"></summary></span>
+        /// <span class="code-SummaryComment"><param name="sHL7">The HL7 to convert</param></span>
+        /// <span class="code-SummaryComment"><returns>XMLDocument with root of hl7message</returns></span>
+        public static XmlDocument ConvertToXmlDocument(string sHL7)
         {
             XmlDocument _xmlDoc = null;
             // Go and create the base XML
@@ -127,7 +155,7 @@ namespace TransformFunctions
                                                             "." + (c + 1).ToString() +
                                                             "." + (d + 1).ToString());
                                                         subComponentRepEl.InnerText =
-                                                                subComponentRepetitions[d];
+                                                                subComponentRepetitions[d].UnEscapeHL7();
                                                         componentEl.AppendChild(subComponentRepEl);
                                                     }
                                                 }
@@ -137,7 +165,7 @@ namespace TransformFunctions
                                                         _xmlDoc.CreateElement(sFields[0] +
                                                         "." + a.ToString() +
                                                         "." + (b + 1).ToString() + "." + (c + 1).ToString());
-                                                    subComponentEl.InnerText = subComponents[c];
+                                                    subComponentEl.InnerText = subComponents[c].UnEscapeHL7();
                                                     componentEl.AppendChild(subComponentEl);
 
                                                 }
@@ -166,7 +194,7 @@ namespace TransformFunctions
                                                       _xmlDoc.CreateElement(sFields[0] + "." + (sRepeatingComponent.Length > 1 ? "." + rc.ToString() : ".") +
                                                       a.ToString() + "." + (b + 1).ToString() +
                                                       "." + (c + 1).ToString());
-                                                    repetitionEl.InnerText = sRepetitions[c];
+                                                    repetitionEl.InnerText = sRepetitions[c].UnEscapeHL7();
                                                     componentEl.AppendChild(repetitionEl);
                                                 }
                                                 fieldEl.AppendChild(componentEl);
@@ -175,7 +203,7 @@ namespace TransformFunctions
                                             else
                                             {
 
-                                                componentEl.InnerText = sComponents[b];
+                                                componentEl.InnerText = sComponents[b].UnEscapeHL7();
                                                 if (sRepeatingComponent.Length > 1)
                                                 {
                                                     repeatelement.AppendChild(componentEl);
@@ -197,12 +225,12 @@ namespace TransformFunctions
                                 {
                                     if (sRepeatingComponent.Length > 1)
                                     {
-                                        repeatelement.InnerText = sFields[a];
+                                        repeatelement.InnerText = sFields[a].UnEscapeHL7();
                                         el.AppendChild(repeatelement);
                                     }
                                     else
                                     {
-                                        fieldEl.InnerText = sFields[a];
+                                        fieldEl.InnerText = sFields[a].UnEscapeHL7();
                                         el.AppendChild(fieldEl);
                                     }
                                 }
@@ -211,7 +239,7 @@ namespace TransformFunctions
                         }
                         else
                         {
-                            fieldEl.InnerText = sFields[a];
+                            fieldEl.InnerText = sFields[a].UnEscapeHL7();
                             el.AppendChild(fieldEl);
                         }
                     }
@@ -279,6 +307,7 @@ namespace TransformFunctions
             output.AppendChild(rootNode);
             return output;
         }
+        
     }
 }
 

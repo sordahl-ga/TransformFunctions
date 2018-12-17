@@ -19,11 +19,9 @@ namespace TransformFunctions
         {
             log.LogInformation("C# HL7toJSON HTTP trigger function fired");
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            string json = "";
             try
             {
-                json = JsonConvert.SerializeXmlNode(HL7ToXmlConverter.ConvertToXml(requestBody));
-                JObject o = JObject.Parse(json);
+                JObject o = HL7ToXmlConverter.ConvertToJObject(requestBody);
                 return new JsonResult(o["hl7message"]);
 
 

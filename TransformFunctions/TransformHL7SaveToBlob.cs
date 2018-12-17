@@ -9,6 +9,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.WindowsAzure.Storage;
 using Microsoft.WindowsAzure.Storage.Blob;
 using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace TransformFunctions
 {
@@ -23,15 +24,17 @@ namespace TransformFunctions
             string coid = req.Query["id"];
             if (coid == null) coid = Guid.NewGuid().ToString();
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
-            string json = "";
+          
+            JObject jobj = null;
             try
             {
-                json = HL7ToXmlConverter.ConvertToJSON(requestBody);
+                jobj = HL7ToXmlConverter.ConvertToJObject(requestBody);
                 DateTime now = DateTime.Now;
+                string msgtype = (string) jobj["hl7message"]["MSH"]["MSH.9"]["MSH.9.1"];
                 string ds = now.Year.ToString() + "/" + now.Month.ToString("D2") + "/" + now.Day.ToString("D2") + "/" + now.Hour.ToString("D2");
                 await container.CreateIfNotExistsAsync();
-                CloudBlockBlob blockBlob = container.GetBlockBlobReference(ds + "/" + coid.ToLower() + ".json");
-                using (var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(json), writable: false))
+                CloudBlockBlob blockBlob = container.GetBlockBlobReference(msgtype.ToLower() + "/" + ds + "/" + coid.ToLower() + ".json");
+                using (var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(HL7ToXmlConverter.ConvertToJSON(jobj)), writable: false))
                 {
                     await blockBlob.UploadFromStreamAsync(stream);
                 }
