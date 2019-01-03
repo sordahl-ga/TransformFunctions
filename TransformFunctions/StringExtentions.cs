@@ -9,7 +9,7 @@ namespace TransformFunctions
       
             public static string UnEscapeHL7(this string str)
             {
-                return str.Replace("\\T\\", "&").Replace("\\S\\", "^").Replace("\\E\\", "\\").Replace("\\R\\", "~");
+                return str.Replace("\\T\\", "&").Replace("\\S\\", "^").Replace("\\E\\", "\\").Replace("\\R\\", "~").Replace("\\.br\\","\n");
             }
         
     }
