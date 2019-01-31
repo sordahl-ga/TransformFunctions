@@ -20,6 +20,7 @@ namespace TransformFunctions
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
             [Blob("hl7json", Connection ="StorageAccount")] CloudBlobContainer container, ILogger log)
         {
+            string contenttype = req.ContentType;
             log.LogInformation("C# TransformSaveToBlob HTTP trigger function fired");
             string coid = req.Query["id"];
             if (coid == null) coid = Guid.NewGuid().ToString();
@@ -38,7 +39,10 @@ namespace TransformFunctions
                 {
                     await blockBlob.UploadFromStreamAsync(stream);
                 }
-                return new OkResult();
+                var retVal = new ContentResult();
+                retVal.ContentType = contenttype;
+                retVal.Content = Utilities.GenerateACK(jobj);
+                return retVal;
 
             }
             catch (Exception e)
