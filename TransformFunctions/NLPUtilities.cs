@@ -47,14 +47,11 @@ namespace TransformFunctions
                     var dr = JArray.Parse(report);
                     foreach (JObject obj in dr.Children())
                     {
-                        if (Utilities.getFirstField(obj["resourceType"]).Equals("DiagnosticReport"))
+                        if (obj["text"] != null)
                         {
-                            if (obj["text"] != null)
-                            {
-                                retVal.Add(Utilities.getFirstField(obj["text"]["div"]).UnEscapeHL7());
-                            }
+                                retVal.Add(obj["text"]["div"].GetFirstField().UnEscapeHL7());
                         }
-                    }
+                                            }
                 }
                 catch (Exception e)
                 {
@@ -70,7 +67,7 @@ namespace TransformFunctions
         private static string ExtractReportFromHL7(string hl7)
         {
             JObject obj = HL7ToXmlConverter.ConvertToJObject(hl7);
-            string msgtype = Utilities.getFirstField(obj["hl7message"]["MSH"]["MSH.9"]);
+            string msgtype = obj["hl7message"]["MSH"]["MSH.9"].GetFirstField();
             StringBuilder builder = new StringBuilder();
             if (msgtype.ToLower().Equals("oru"))
             {

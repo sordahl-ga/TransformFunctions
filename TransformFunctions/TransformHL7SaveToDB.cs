@@ -57,34 +57,9 @@ namespace TransformFunctions
         }
         private static string determinerhm(JObject obj)
         {
-            string rhm = "932";
-            string msgtype = Utilities.getFirstField(obj["hl7message"]["MSH"]["MSH.9"]);
-            msgtype = msgtype.ToLower();
-            if (msgtype.Equals("adt"))
-            {
-           
-                string instance = Utilities.getFirstField(obj["hl7message"]["MSH"]["MSH.3"]);
-                string source =Utilities.getFirstField(obj["hl7message"]["MSH"]["MSH.4"]);
-                if (instance.Equals("HQ") && source.Equals("C")) rhm = "204";
-                else if (instance.Equals("HQ") && source.Equals("U")) rhm = "205";
-            }
-            else if (msgtype.Equals("oru"))
-            {
-                string pv139 = Utilities.getFirstField(obj["hl7message"]["PV1"]["PV1.39"]);
-                var rhm205 = "COE, COM, COC, CON, COS, COU";
-                var rhm204 = "J, CH, M";
-                if (rhm205.IndexOf(pv139) > -1) rhm = "205";
-                if (rhm204.IndexOf(pv139) > -1) rhm = "204";
-            }
-            else if (msgtype.Equals("orm"))
-            {
-                string instance = Utilities.getFirstField(obj["hl7message"]["MSH"]["MSH.3"]);
-                string source = Utilities.getFirstField(obj["hl7message"]["MSH"]["MSH.4"]);
-                if (instance.Equals("HNAM") && source.Equals("AA")) rhm = "204";
-                else if (instance.Equals("HNAM") && source.Equals("CO")) rhm = "205";
-            }
-            return rhm;
-            
+            string instance = Utilities.getFirstField(obj["hl7message"]["MSH"]["MSH.3"]);
+            string source = Utilities.getFirstField(obj["hl7message"]["MSH"]["MSH.4"]);
+            return (instance != null ? instance + (source ?? "") : "");
         }
         
     }
