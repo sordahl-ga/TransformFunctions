@@ -24,7 +24,7 @@ namespace TransformFunctions
                 ConnectionStringSetting = "CosmosDBConnection")] DocumentClient client,
             ILogger log)
         {
-            string contenttype = req.ContentType;
+            string contenttype = string.IsNullOrEmpty(req.ContentType) ? "application/hl7-v2+er7; charset=utf-8" : req.ContentType;
             log.LogInformation("C# TransformSaveToDB HTTP trigger function fired");
             string coid = req.Query["id"];
             if (coid == null) coid = Guid.NewGuid().ToString();
