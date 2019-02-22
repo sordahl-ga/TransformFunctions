@@ -82,14 +82,16 @@ namespace TransformFunctions
                 // Don't care about empty lines
                 if (sHL7Lines[i] != string.Empty)
                 {
+                   
                     // Get the line and get the line's segments
                     string sHL7Line = sHL7Lines[i];
                     string[] sFields = HL7ToXmlConverter.GetMessgeFields(sHL7Line);
-
                     // Create a new element in the XML for the line
                     XmlElement el = _xmlDoc.CreateElement(sFields[0]);
                     _xmlDoc.DocumentElement.AppendChild(el);
-
+                    XmlElement sq = _xmlDoc.CreateElement("MSGSEQ");
+                    sq.InnerText = (i + 1).ToString();
+                    el.AppendChild(sq);
                     // For each field in the line of HL7
                     for (int a = 1; a < sFields.Length; a++)
                     {
