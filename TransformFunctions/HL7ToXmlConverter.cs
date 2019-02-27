@@ -5,19 +5,64 @@ using System.Collections.Generic;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Xml;
+using Microsoft.WindowsAzure.Storage;
+using Microsoft.WindowsAzure.Storage.Blob;
+using System.Threading.Tasks;
+using System.IO;
 
 namespace TransformFunctions
 {
+    public class HL7ExtractedNameData
+    {
+        
+        public HL7ExtractedNameData(string name,string repeat = "no")
+        {
+            this.ExtractedName = name;
+            this.Repeats = (repeat.ToLower().Equals("no") ? false : true);
+        }
+        public string ExtractedName { get; set; }
+        public bool Repeats { get; set; }
+    }
     public static class HL7ToXmlConverter
     {
+        public static readonly string DEFAULT_HL7VERSION = "2.3";
+        public static async Task<string> LoadMetaDataResource(string sHL7)
+        {
+            string[] sHL7Lines = sHL7.Split('\r');
+            sHL7Lines[0] = Regex.Replace(sHL7Lines[0], @"[^ -~]", "");
+            string[] fields = sHL7Lines[0].Split("|");
+            if (fields.Length < 12 || !fields[0].Equals("MSH")) return null;
+            var version = fields[11];
+            if (string.IsNullOrEmpty(version)) version = HL7ToXmlConverter.DEFAULT_HL7VERSION;
+
+            String strorageconn = Utilities.GetEnvironmentVariable("StorageAccount");
+            CloudStorageAccount storageacc = CloudStorageAccount.Parse(strorageconn);
+
+            //Create Reference to Azure Blob
+            CloudBlobClient blobClient = storageacc.CreateCloudBlobClient();
+
+            //The next 2 lines create if not exists a container named "democontainer"
+            CloudBlobContainer container = blobClient.GetContainerReference("hl7json");
+            await container.CreateIfNotExistsAsync();
+
+            CloudBlockBlob blockBlob = container.GetBlockBlobReference("metadata/v" + version + "/hl7fieldmetadata.json");
+            if (await blockBlob.ExistsAsync())
+            {
+                    return await blockBlob.DownloadTextAsync();
+                    
+            }
+            return null;
+
+        }
         // <span class="code-SummaryComment"><summary></span>
         /// Converts an HL7 message into a JOject Object from it's XML representation of the same message.
         /// <span class="code-SummaryComment"></summary></span>
         /// <span class="code-SummaryComment"><param name="sHL7">The HL7 to convert</param></span>
         /// <span class="code-SummaryComment"><returns>JObject with root of hl7message</returns></span>
-        public static JObject ConvertToJObject(string sHL7)
+        public static JObject ConvertToJObject(string sHL7,string hl7metadata=null)
         {
-            string json = JsonConvert.SerializeXmlNode(HL7ToXmlConverter.ConvertToXmlDocument(sHL7));
+            var xmld = HL7ToXmlConverter.ConvertToXmlDocument(sHL7, hl7metadata);
+            string json = JsonConvert.SerializeXmlNode(xmld);
             JObject o = JObject.Parse(json);
             return o;
         }
@@ -35,9 +80,9 @@ namespace TransformFunctions
         /// <span class="code-SummaryComment"></summary></span>
         /// <span class="code-SummaryComment"><param name="sHL7">The HL7 to convert</param></span>
         /// <span class="code-SummaryComment"><returns></returns></span>
-        public static string ConvertToJSON(string sHL7)
+        public static string ConvertToJSON(string sHL7,string hl7metadata=null)
         {
-            JObject o = HL7ToXmlConverter.ConvertToJObject(sHL7);
+            JObject o = HL7ToXmlConverter.ConvertToJObject(sHL7,hl7metadata);
             return JsonConvert.SerializeObject(o["hl7message"]);
         }
         /// <span class="code-SummaryComment"><summary></span>
@@ -45,17 +90,35 @@ namespace TransformFunctions
         /// <span class="code-SummaryComment"></summary></span>
         /// <span class="code-SummaryComment"><param name="sHL7">The HL7 to convert</param></span>
         /// <span class="code-SummaryComment"><returns>XML String with root of hl7message</returns></span>
-        public static string ConvertToXml(string sHL7)
+        public static string ConvertToXml(string sHL7,string hl7metadata=null)
         {
-            return HL7ToXmlConverter.ConvertToXmlDocument(sHL7).OuterXml;
+            return HL7ToXmlConverter.ConvertToXmlDocument(sHL7,hl7metadata).OuterXml;
+        }
+        private static HL7ExtractedNameData LookUpSegmentName(JObject metadata, string segment)
+        {
+            if (metadata == null) return new HL7ExtractedNameData(segment);
+            JToken fmd = metadata.SelectToken("..segments[?(@.id=='" + segment + "')]");
+            return (fmd == null ? new HL7ExtractedNameData(segment) : new HL7ExtractedNameData((string)fmd["SegmentName"],(string)fmd["Repeat"]));
+        }
+        private static HL7ExtractedNameData LookUpFieldName(JObject metadata,string segment, string seq)
+        {
+            if (metadata == null) return new HL7ExtractedNameData(segment + "." + seq);
+            JToken fmd = metadata.SelectToken("..fields[?(@.Segment=='" + segment + "' && @.Sequence=='" + seq + "')]");
+            return (fmd==null ? new HL7ExtractedNameData(segment + "." + seq) : new HL7ExtractedNameData((string)fmd["FieldName"],(string)fmd["Repeat"]));
         }
         /// <span class="code-SummaryComment"><summary></span>
         /// Converts an HL7 message into an XMLDocument representation of the same message.
         /// <span class="code-SummaryComment"></summary></span>
         /// <span class="code-SummaryComment"><param name="sHL7">The HL7 to convert</param></span>
         /// <span class="code-SummaryComment"><returns>XMLDocument with root of hl7message</returns></span>
-        public static XmlDocument ConvertToXmlDocument(string sHL7)
+        public static XmlDocument ConvertToXmlDocument(string sHL7,string hl7metadata=null)
         {
+            //Setup MetaData JOBJECT
+            JObject metadata = null;
+            if (hl7metadata != null)
+            {
+                metadata = JObject.Parse(hl7metadata);
+            }
             XmlDocument _xmlDoc = null;
             // Go and create the base XML
             _xmlDoc = CreateXmlDoc();
@@ -79,26 +142,40 @@ namespace TransformFunctions
             /// for subcomponents, and repetition within them too.
             for (int i = 0; i < sHL7Lines.Length; i++)
             {
+                string fs = null;
                 // Don't care about empty lines
                 if (sHL7Lines[i] != string.Empty)
                 {
                    
                     // Get the line and get the line's segments
                     string sHL7Line = sHL7Lines[i];
-                    string[] sFields = HL7ToXmlConverter.GetMessgeFields(sHL7Line);
+                    if (fs == null) fs = GetFieldSeparator(sHL7Line);
+                    string[] sFields = HL7ToXmlConverter.GetMessgeFields(sHL7Line,fs);
                     // Create a new element in the XML for the line
-                    XmlElement el = _xmlDoc.CreateElement(sFields[0]);
+                    var segmentextract = LookUpSegmentName(metadata, sFields[0]);
+                    XmlElement el = _xmlDoc.CreateElement(segmentextract.ExtractedName);
+                    if (segmentextract.Repeats)
+                    {
+                        var attribute = _xmlDoc.CreateAttribute("json", "Array", "http://james.newtonking.com/projects/json");
+                        attribute.InnerText = "true";
+                        el.Attributes.Append(attribute);
+                    }
                     _xmlDoc.DocumentElement.AppendChild(el);
-                    XmlElement sq = _xmlDoc.CreateElement("MSGSEQ");
+                    XmlElement sq = _xmlDoc.CreateElement("msgseq");
                     sq.InnerText = (i + 1).ToString();
                     el.AppendChild(sq);
                     // For each field in the line of HL7
                     for (int a = 1; a < sFields.Length; a++)
                     {
+                        var fieldextract = LookUpFieldName(metadata, sFields[0], a.ToString());
                         // Create a new element
-                        XmlElement fieldEl = _xmlDoc.CreateElement(sFields[0] +
-                                             "." + a.ToString());
-
+                        XmlElement fieldEl = _xmlDoc.CreateElement(fieldextract.ExtractedName);
+                        if (fieldextract.Repeats)
+                        {
+                            var attribute = _xmlDoc.CreateAttribute("json", "Array", "http://james.newtonking.com/projects/json");
+                            attribute.InnerText = "true";
+                            fieldEl.Attributes.Append(attribute);
+                        }
                         /// Part of the HL7 specification is that part
                         /// of the message header defines which characters
                         /// are going to be used to delimit the message
@@ -118,8 +195,7 @@ namespace TransformFunctions
                                 XmlElement repeatelement = null;
                                 if (sRepeatingComponent.Length > 1)
                                 {
-                                    repeatelement = _xmlDoc.CreateElement(sFields[0] +
-                                            "." + a.ToString());
+                                    repeatelement = _xmlDoc.CreateElement(fieldextract.ExtractedName);
 
                                 }
                                 string[] sComponents = HL7ToXmlConverter.GetComponents(r);
@@ -129,8 +205,7 @@ namespace TransformFunctions
                                     for (int b = 0; b < sComponents.Length; b++)
                                     {
 
-                                        XmlElement componentEl = _xmlDoc.CreateElement(sFields[0] +
-                                                "." + a.ToString() +
+                                        XmlElement componentEl = _xmlDoc.CreateElement(fieldextract.ExtractedName +
                                                 "." + (b + 1).ToString());
 
 
@@ -151,8 +226,7 @@ namespace TransformFunctions
                                                             d++)
                                                     {
                                                         XmlElement subComponentRepEl =
-                                                            _xmlDoc.CreateElement(sFields[0] +
-                                                            "." + a.ToString() +
+                                                            _xmlDoc.CreateElement(fieldextract.ExtractedName +
                                                             "." + (b + 1).ToString() +
                                                             "." + (c + 1).ToString() +
                                                             "." + (d + 1).ToString());
@@ -164,8 +238,7 @@ namespace TransformFunctions
                                                 else
                                                 {
                                                     XmlElement subComponentEl =
-                                                        _xmlDoc.CreateElement(sFields[0] +
-                                                        "." + a.ToString() +
+                                                        _xmlDoc.CreateElement(fieldextract.ExtractedName +
                                                         "." + (b + 1).ToString() + "." + (c + 1).ToString());
                                                     subComponentEl.InnerText = subComponents[c].UnEscapeHL7();
                                                     componentEl.AppendChild(subComponentEl);
@@ -250,19 +323,27 @@ namespace TransformFunctions
 
             return _xmlDoc;
         }
-
+        private static string GetFieldSeparator(string s)
+        {
+            if (s.StartsWith("MSH") && s.Length > 3)
+            {
+                return s.Substring(3,1);
+            }
+            return "|";
+        }
         /// <span class="code-SummaryComment"><summary></span>
         /// Split a line into its component parts based on pipe.
         /// <span class="code-SummaryComment"></summary></span>
         /// <span class="code-SummaryComment"><param name="s"></param></span>
         /// <span class="code-SummaryComment"><returns></returns></span>
-        private static string[] GetMessgeFields(string s)
+        private static string[] GetMessgeFields(string s,string fs)
         {
-            string[] s1 = s.Split('|');
+            string[] s1 = s.Split(fs);
             if (s1[0].Equals("MSH", StringComparison.InvariantCultureIgnoreCase))
             {
                 List<string> li = new List<string>(s1);
                 li.Insert(0, s1[0]);
+                li[1] = fs;
                 return li.ToArray();
             }
             return s1;
@@ -304,9 +385,11 @@ namespace TransformFunctions
         /// <span class="code-SummaryComment"><returns></returns></span>
         private static XmlDocument CreateXmlDoc()
         {
+            var rootxml = @"<hl7message xmlns:json='http://james.newtonking.com/projects/json'/>";
             XmlDocument output = new XmlDocument();
-            XmlElement rootNode = output.CreateElement("hl7message");
-            output.AppendChild(rootNode);
+            output.LoadXml(rootxml);
+            //XmlElement rootNode = output.CreateElement("hl7message");
+
             return output;
         }
         

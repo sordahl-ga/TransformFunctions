@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+
 namespace TransformFunctions
 {
     public static class HL7toJSON
@@ -21,7 +22,9 @@ namespace TransformFunctions
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
             try
             {
-                JObject o = HL7ToXmlConverter.ConvertToJObject(requestBody);
+
+                string md = await HL7ToXmlConverter.LoadMetaDataResource(requestBody);
+                JObject o = HL7ToXmlConverter.ConvertToJObject(requestBody,md);
                 return new JsonResult(o["hl7message"]);
 
 
