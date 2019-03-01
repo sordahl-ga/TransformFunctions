@@ -25,41 +25,13 @@ namespace TransformFunctions
     }
     public static class HL7ToXmlConverter
     {
-        public static readonly string DEFAULT_HL7VERSION = "2.3";
-        public static async Task<string> LoadMetaDataResource(string sHL7)
-        {
-            string[] sHL7Lines = sHL7.Split('\r');
-            sHL7Lines[0] = Regex.Replace(sHL7Lines[0], @"[^ -~]", "");
-            string[] fields = sHL7Lines[0].Split("|");
-            if (fields.Length < 12 || !fields[0].Equals("MSH")) return null;
-            var version = fields[11];
-            if (string.IsNullOrEmpty(version)) version = HL7ToXmlConverter.DEFAULT_HL7VERSION;
-
-            String strorageconn = Utilities.GetEnvironmentVariable("StorageAccount");
-            CloudStorageAccount storageacc = CloudStorageAccount.Parse(strorageconn);
-
-            //Create Reference to Azure Blob
-            CloudBlobClient blobClient = storageacc.CreateCloudBlobClient();
-
-            //The next 2 lines create if not exists a container named "democontainer"
-            CloudBlobContainer container = blobClient.GetContainerReference("hl7json");
-            await container.CreateIfNotExistsAsync();
-
-            CloudBlockBlob blockBlob = container.GetBlockBlobReference("metadata/v" + version + "/hl7fieldmetadata.json");
-            if (await blockBlob.ExistsAsync())
-            {
-                    return await blockBlob.DownloadTextAsync();
-                    
-            }
-            return null;
-
-        }
+       
         // <span class="code-SummaryComment"><summary></span>
         /// Converts an HL7 message into a JOject Object from it's XML representation of the same message.
         /// <span class="code-SummaryComment"></summary></span>
         /// <span class="code-SummaryComment"><param name="sHL7">The HL7 to convert</param></span>
         /// <span class="code-SummaryComment"><returns>JObject with root of hl7message</returns></span>
-        public static JObject ConvertToJObject(string sHL7,string hl7metadata=null)
+        public static JObject ConvertToJObject(string sHL7,JObject hl7metadata=null)
         {
             var xmld = HL7ToXmlConverter.ConvertToXmlDocument(sHL7, hl7metadata);
             string json = JsonConvert.SerializeXmlNode(xmld);
@@ -80,7 +52,7 @@ namespace TransformFunctions
         /// <span class="code-SummaryComment"></summary></span>
         /// <span class="code-SummaryComment"><param name="sHL7">The HL7 to convert</param></span>
         /// <span class="code-SummaryComment"><returns></returns></span>
-        public static string ConvertToJSON(string sHL7,string hl7metadata=null)
+        public static string ConvertToJSON(string sHL7, JObject hl7metadata =null)
         {
             JObject o = HL7ToXmlConverter.ConvertToJObject(sHL7,hl7metadata);
             return JsonConvert.SerializeObject(o["hl7message"]);
@@ -90,19 +62,19 @@ namespace TransformFunctions
         /// <span class="code-SummaryComment"></summary></span>
         /// <span class="code-SummaryComment"><param name="sHL7">The HL7 to convert</param></span>
         /// <span class="code-SummaryComment"><returns>XML String with root of hl7message</returns></span>
-        public static string ConvertToXml(string sHL7,string hl7metadata=null)
+        public static string ConvertToXml(string sHL7, JObject hl7metadata =null)
         {
             return HL7ToXmlConverter.ConvertToXmlDocument(sHL7,hl7metadata).OuterXml;
         }
         private static HL7ExtractedNameData LookUpSegmentName(JObject metadata, string segment)
         {
-            if (metadata == null) return new HL7ExtractedNameData(segment);
+            if (metadata == null || !Utilities.GetEnvironmentVariable("UseMetaDataFieldNames", "no").Equals("yes", StringComparison.InvariantCultureIgnoreCase)) return new HL7ExtractedNameData(segment);
             JToken fmd = metadata.SelectToken("..segments[?(@.id=='" + segment + "')]");
             return (fmd == null ? new HL7ExtractedNameData(segment) : new HL7ExtractedNameData((string)fmd["SegmentName"],(string)fmd["Repeat"]));
         }
         private static HL7ExtractedNameData LookUpFieldName(JObject metadata,string segment, string seq)
         {
-            if (metadata == null) return new HL7ExtractedNameData(segment + "." + seq);
+            if (metadata == null || !Utilities.GetEnvironmentVariable("UseMetaDataFieldNames","no").Equals("yes",StringComparison.InvariantCultureIgnoreCase)) return new HL7ExtractedNameData(segment + "." + seq);
             JToken fmd = metadata.SelectToken("..fields[?(@.Segment=='" + segment + "' && @.Sequence=='" + seq + "')]");
             return (fmd==null ? new HL7ExtractedNameData(segment + "." + seq) : new HL7ExtractedNameData((string)fmd["FieldName"],(string)fmd["Repeat"]));
         }
@@ -111,14 +83,9 @@ namespace TransformFunctions
         /// <span class="code-SummaryComment"></summary></span>
         /// <span class="code-SummaryComment"><param name="sHL7">The HL7 to convert</param></span>
         /// <span class="code-SummaryComment"><returns>XMLDocument with root of hl7message</returns></span>
-        public static XmlDocument ConvertToXmlDocument(string sHL7,string hl7metadata=null)
+        public static XmlDocument ConvertToXmlDocument(string sHL7, JObject metadata =null)
         {
-            //Setup MetaData JOBJECT
-            JObject metadata = null;
-            if (hl7metadata != null)
-            {
-                metadata = JObject.Parse(hl7metadata);
-            }
+           
             XmlDocument _xmlDoc = null;
             // Go and create the base XML
             _xmlDoc = CreateXmlDoc();

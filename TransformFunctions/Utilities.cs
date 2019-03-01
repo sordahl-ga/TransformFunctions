@@ -31,9 +31,10 @@ namespace TransformFunctions
             if (o.Type == JTokenType.Object) return (string)o.First;
             return "";
         }
-        public static string GetEnvironmentVariable(string name)
+        public static string GetEnvironmentVariable(string name,string defval=null)
         {
-            return System.Environment.GetEnvironmentVariable(name, EnvironmentVariableTarget.Process);
+            var v = System.Environment.GetEnvironmentVariable(name, EnvironmentVariableTarget.Process);
+            return (v == null && defval != null ? defval : v);
         }
     }
 }

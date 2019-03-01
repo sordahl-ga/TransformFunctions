@@ -13,6 +13,7 @@ namespace TransformFunctions
 {
     public static class HL7toJSON
     {
+        
         [FunctionName("HL7toJSON")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
@@ -22,9 +23,8 @@ namespace TransformFunctions
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
             try
             {
-
-                string md = await HL7ToXmlConverter.LoadMetaDataResource(requestBody);
-                JObject o = HL7ToXmlConverter.ConvertToJObject(requestBody,md);
+                var metadata = HL7MetaDataLoader.Instance.GetMetaDataFromMessage(requestBody);
+                JObject o = HL7ToXmlConverter.ConvertToJObject(requestBody,metadata);
                 return new JsonResult(o["hl7message"]);
 
 
