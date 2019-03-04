@@ -8,7 +8,7 @@ Health Data Platform Supporting Transformation Azure Functions
 
 + api/TransformHL7SaveToBlob -- Converts HL7 Message contained in posted body to a JSON Object and saves it to the configured blob store.
 
-+ api/TransformHL7SaveToBlob -- Converts HL7 Message contained in posted body to a JSON Object and saves it to the configured CosmosDB collection.
++ api/TransformHL7SaveToDB -- Converts HL7 Message contained in posted body to a JSON Object and saves it to the configured CosmosDB collection.
 
 + UpdateSearchIndexDiagReport -- Change Feed listener to run NLP processor on HL7 Messages, extract reports and perform the NLP Pipeline. The NLP Pipeline will perform OCR on process text through the CTAKES NLP Engine for term identification and concept coding and update the configured Azure Search index with the content and term/concept coding facets in the report.
 
