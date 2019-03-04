@@ -18,6 +18,7 @@ namespace TransformFunctions
             collectionName: "messages",
             ConnectionStringSetting = "CosmosDBConnection",
             CreateLeaseCollectionIfNotExists = true,
+            LeaseCollectionPrefix = "fhirupd",
             LeaseCollectionName = "leases")]IReadOnlyList<Document> input, ILogger log)
         {
             if (input != null && input.Count > 0)
@@ -31,10 +32,21 @@ namespace TransformFunctions
                     if (msgtype.ToLower().Equals("orm"))
                     {
                         var s = TransformToFHIR(obj, "api/ORM2FHIR");
-                        log.LogInformation($"The result is {s}");
+                        log.LogTrace($"The result is {s}");
+                        UpdateFHIR(s);
+                    } else if (msgtype.ToLower().Equals("adt"))
+                    {
+                        var s = TransformToFHIR(obj, "api/ADT2FHIR");
+                        log.LogTrace($"The result is {s}");
+                        UpdateFHIR(s);
+                    } else if (msgtype.ToLower().Equals("oru"))
+                    {
+                        var s = TransformToFHIR(obj, "api/ORU2FHIR");
+                        log.LogTrace($"The result is {s}");
                         UpdateFHIR(s);
                     }
-                    
+
+
                 }
                 
             }

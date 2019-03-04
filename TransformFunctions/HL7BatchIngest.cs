@@ -57,7 +57,7 @@ namespace TransformFunctions
                 jobj["id"] = coid;
                 jobj["rhm"] = rhm;
                 var inserted = await client.UpsertDocumentAsync(UriFactory.CreateDocumentCollectionUri("hl7json", "messages"), jobj);
-                logger.LogInformation($"Message id {coid} from {rhm} added to Database");
+                logger.LogTrace($"Message id {coid} from {rhm} added to Database");
             }
             catch (Exception e)
             {

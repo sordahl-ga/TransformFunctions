@@ -18,6 +18,7 @@ namespace TransformFunctions
             collectionName: "messages",
             ConnectionStringSetting = "CosmosDBConnection",
             CreateLeaseCollectionIfNotExists = true,
+            LeaseCollectionPrefix = "srchupd",
             LeaseCollectionName = "leases")]IReadOnlyList<Document> input, ILogger log)
         {
             if (input != null && input.Count > 0)
