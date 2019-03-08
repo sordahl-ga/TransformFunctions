@@ -11,6 +11,7 @@ using System.Net.Http;
 using System.Net;
 using System.Collections.Generic;
 using Newtonsoft.Json.Linq;
+using System.Text;
 
 namespace TransformFunctions
 {
@@ -38,8 +39,8 @@ namespace TransformFunctions
                     await req.Body.CopyToAsync(stream);
                     byteArray = stream.ToArray();
                     }
+                    //string responseFromServer = Encoding.UTF8.GetString(byteArray);
                     string responseFromServer = NLPUtilities.ExtractTextUsingTIKA(byteArray, Utilities.GetEnvironmentVariable("TIKAServerURL"));
-                    //string responseFromServer = System.Text.Encoding.UTF8.GetString(byteArray, 0, byteArray.Length);
                     //Extract Reports From Content (Auto-Detect Medical Exchange Formats (CDA, HL7, FHIR))
                     List<string> medreports = NLPUtilities.ExtractMedicalReportData(responseFromServer,log);
                     List<MedicalEntities> retVal = new List<MedicalEntities>();
