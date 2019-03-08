@@ -8,6 +8,9 @@ using System;
 using Newtonsoft.Json.Linq;
 using System.Threading.Tasks;
 using System.IO.Compression;
+using ICSharpCode.SharpZipLib;
+using ICSharpCode.SharpZipLib.GZip;
+using ICSharpCode.SharpZipLib.Tar;
 
 namespace TransformFunctions
 {
@@ -27,7 +30,7 @@ namespace TransformFunctions
                 r = ExtractTarGz(myBlob, client, log, name).Result;
             } else if (name.ToLower().EndsWith(".tar"))
             {
-                r = ExtractTar(myBlob, client, log).Result;
+                //r = ExtractTar(myBlob, client, log).Result;
             } else
             {
                 r = processUncompressedFile(myBlob, client, log, name).Result;
@@ -76,91 +79,38 @@ namespace TransformFunctions
         }
         private static async Task<int> ExtractTarGz(Stream stream, DocumentClient client, ILogger logger, string name)
         {
-            int total = 0;
-            logger.LogInformation($"Decompressing {name}...");
+            int total = 0, errors = 0;
+            logger.LogInformation($"Decompressing and extracting files from {name}...");
+
             // A GZipStream is not seekable, so copy it first to a FileStream
-            using (var gzip = new GZipStream(stream, CompressionMode.Decompress))
+            using (var sourceStream = new GZipInputStream(stream))
             {
-                string tempfilename = Path.GetTempFileName();
-                FileStream fs = new FileStream(tempfilename, FileMode.Create,FileAccess.ReadWrite);
-                try
+                using (TarInputStream tarIn = new TarInputStream(sourceStream))
                 {
-                    const int chunk = 4096;
-                    using (fs)
+                    TarEntry tarEntry;
+                    while ((tarEntry = tarIn.GetNextEntry()) != null)
                     {
-                        int read;
-                        var buffer = new byte[chunk];
-                        do
-                        {
-                            read = gzip.Read(buffer, 0, chunk);
-                            fs.Write(buffer, 0, read);
-                        } while (read == chunk);
-
-                        fs.Seek(0, SeekOrigin.Begin);
-                        total = await ExtractTar(fs, client, logger);
-                    }
-                }
-                catch (Exception e)
-                {
-                    logger.LogError(e, e.Message);
-                }
-                finally
-                {
-                    if (File.Exists(tempfilename)) File.Delete(tempfilename);
-                }
-            }
-            return total;
-        }
-        private static async Task<int> ExtractTar(Stream stream, DocumentClient client, ILogger logger)
-        {
-            logger.LogInformation("Extracting message files from Tar Ball...");
-            int total = 0;
-            int errors = 0;
-            try
-            {
-                var buffer = new byte[100];
-                while (true)
-                {
-                    stream.Read(buffer, 0, 100);
-                    var name = Encoding.ASCII.GetString(buffer).Trim('\0');
-                    if (String.IsNullOrWhiteSpace(name))
-                        break;
-                    stream.Seek(24, SeekOrigin.Current);
-                    stream.Read(buffer, 0, 12);
-                    var size = Convert.ToInt64(Encoding.ASCII.GetString(buffer, 0, 12).Trim('\0'), 8);
-
-                    stream.Seek(376L, SeekOrigin.Current);
-
-                    using (var str = new MemoryStream())
-                    {
-                        var buf = new byte[size];
-                        stream.Read(buf, 0, buf.Length);
-                        var rslt = await processMessage(Encoding.UTF8.GetString(buf, 0, buf.Length), client, logger, name);
+                        if (tarEntry.IsDirectory)
+                            continue;
+                        byte[] bytes = null;
+                        var str = new MemoryStream();
+                        tarIn.CopyEntryContents(str);
+                        bytes = str.ToArray();
+                        var rslt = await processMessage(Encoding.UTF8.GetString(bytes), client, logger, tarEntry.Name);
                         total++;
                         if (!rslt)
                         {
                             errors++;
-                            logger.LogError("Unable to process file: " + name + " un-supported format!");
-                        } 
+                            logger.LogError("Unable to process file: " + tarEntry.Name + " un-supported format!");
+                        }
                         if (total % 1000 == 0) logger.LogInformation($"Processed {total} files. Errors: {errors}");
                     }
-
-                    var pos = stream.Position;
-
-                    var offset = 512 - (pos % 512);
-                    if (offset == 512)
-                        offset = 0;
-
-                    stream.Seek(offset, SeekOrigin.Current);
                 }
-            }
-            catch (Exception e)
-            {
-                logger.LogError(e, e.Message);
             }
             logger.LogInformation($"Processed {total} files. Errors: {errors}");
             return total;
         }
+        
        
         private static async Task<bool> processMessage(string message, DocumentClient client,ILogger logger,string id=null)
         {
