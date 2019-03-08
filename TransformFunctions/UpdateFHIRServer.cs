@@ -12,6 +12,7 @@ namespace TransformFunctions
 {
     public static class UpdateFHIRServer
     {
+        [Disable]
         [FunctionName("UpdateFHIRServer")]
         public static void Run([CosmosDBTrigger(
             databaseName: "hl7json",
@@ -21,6 +22,8 @@ namespace TransformFunctions
             LeaseCollectionPrefix = "fhirupd",
             LeaseCollectionName = "leases")]IReadOnlyList<Document> input, ILogger log)
         {
+           
+            if (string.IsNullOrEmpty(Utilities.GetEnvironmentVariable("FHIRServer")) || !bool.Parse(Utilities.GetEnvironmentVariable("FHIRTransformEnabled","false"))) return;
             if (input != null && input.Count > 0)
             {
                 log.LogInformation("UpdateFHIRServer Documents modified " + input.Count);

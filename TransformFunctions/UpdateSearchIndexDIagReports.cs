@@ -12,6 +12,7 @@ namespace TransformFunctions
 {
     public static class UpdateSearchIndexDiagReports
     {
+        [Disable]
         [FunctionName("UpdateSearchIndexDiagReports")]
         public static void Run([CosmosDBTrigger(
             databaseName: "hl7json",
@@ -21,6 +22,7 @@ namespace TransformFunctions
             LeaseCollectionPrefix = "srchupd",
             LeaseCollectionName = "leases")]IReadOnlyList<Document> input, ILogger log)
         {
+            
             if (input != null && input.Count > 0)
             {
                 SearchUtilities search = new SearchUtilities(log);
