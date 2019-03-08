@@ -101,13 +101,14 @@ namespace TransformFunctions
                         if (!rslt)
                         {
                             errors++;
-                            logger.LogError("Unable to process file: " + tarEntry.Name + " un-supported format!");
+                            //logger.LogTrace("Unable to process file: " + tarEntry.Name + " un-supported format!");
                         }
-                        if (total % 1000 == 0) logger.LogInformation($"Processed {total} files. Errors: {errors}");
+                        if (total % 1000 == 0) logger.LogTrace($"Processed {total} files. Errors: {errors}");
                     }
                 }
             }
             logger.LogInformation($"Processed {total} files. Errors: {errors}");
+            logger.LogTrace($"Processed {total} files. Errors: {errors}");
             return total;
         }
         
@@ -131,7 +132,7 @@ namespace TransformFunctions
                 jobj["id"] = coid;
                 jobj["rhm"] = rhm;
                 var inserted = await client.UpsertDocumentAsync(UriFactory.CreateDocumentCollectionUri("hl7json", "messages"), jobj);
-                logger.LogTrace($"Message id {coid} from {rhm} added to Database");
+                //logger.LogTrace($"Message id {coid} from {rhm} added to Database");
                 return true;
             }
             catch (Exception e)
