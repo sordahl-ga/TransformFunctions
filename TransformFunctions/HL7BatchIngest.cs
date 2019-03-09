@@ -23,19 +23,28 @@ namespace TransformFunctions
                 collectionName :"messages",
                 ConnectionStringSetting = "CosmosDBConnection")] DocumentClient client, string name, ILogger log)
         {
-            log.LogInformation($"Processing HL7 Batch File blob hl7json/ingest/hl7batch/{name}: \n Size: {myBlob.Length} Bytes");
-            int r = 0;
-            if (name.ToLower().EndsWith(".tar.gz"))
+            try
             {
-                r = ExtractTarGz(myBlob, client, log, name).Result;
-            } else if (name.ToLower().EndsWith(".tar"))
-            {
-                //r = ExtractTar(myBlob, client, log).Result;
-            } else
-            {
-                r = processUncompressedFile(myBlob, client, log, name).Result;
+                log.LogInformation($"Processing HL7 Batch File blob hl7json/ingest/hl7batch/{name}: \n Size: {myBlob.Length} Bytes");
+                int r = 0;
+                if (name.ToLower().EndsWith(".tar.gz"))
+                {
+                    r = ExtractTarGz(myBlob, client, log, name).Result;
+                }
+                else if (name.ToLower().EndsWith(".tar"))
+                {
+                    //r = ExtractTar(myBlob, client, log).Result;
+                }
+                else
+                {
+                    r = processUncompressedFile(myBlob, client, log, name).Result;
+                }
+                log.LogInformation($"Finished processing messages from HL7 Batch blob hl7json/ingest/hl7batch/{name}");
             }
-            log.LogInformation($"Finished processing messages from HL7 Batch blob hl7json/ingest/hl7batch/{name}");
+            catch (Exception e)
+            {
+                log.LogError($"Error Processing messages from HL7 Batch Blob {name}: {e.Message}", e);
+            }
             
         }
         private static async Task<int> processUncompressedFile(Stream stream,DocumentClient client, ILogger log,string name)
@@ -53,7 +62,7 @@ namespace TransformFunctions
                         {
                             int removetype = name.LastIndexOf(".");
                             if (removetype < 0) removetype = name.Length;
-                            await processMessage(message.ToString(), client, log, name.Substring(0, removetype));
+                            await processMessage(message.ToString(), client, log, name.Substring(0, removetype),name);
                             total++;
                             message.Clear();
                         }
@@ -65,7 +74,7 @@ namespace TransformFunctions
                     {
                         int removetype = name.LastIndexOf(".");
                         if (removetype < 0) removetype = name.Length;
-                        await processMessage(message.ToString(), client, log, name.Substring(0, removetype));
+                        await processMessage(message.ToString(), client, log, name.Substring(0, removetype),name);
                         total++;
                     }
                 }
@@ -81,7 +90,7 @@ namespace TransformFunctions
         {
             int total = 0, errors = 0;
             logger.LogInformation($"Decompressing and extracting files from {name}...");
-
+            
             // A GZipStream is not seekable, so copy it first to a FileStream
             using (var sourceStream = new GZipInputStream(stream))
             {
@@ -96,24 +105,24 @@ namespace TransformFunctions
                         var str = new MemoryStream();
                         tarIn.CopyEntryContents(str);
                         bytes = str.ToArray();
-                        var rslt = await processMessage(Encoding.UTF8.GetString(bytes), client, logger, tarEntry.Name);
+                        var rslt = await processMessage(Encoding.UTF8.GetString(bytes), client, logger, tarEntry.Name,name);
                         total++;
                         if (!rslt)
                         {
                             errors++;
                             //logger.LogTrace("Unable to process file: " + tarEntry.Name + " un-supported format!");
                         }
-                        if (total % 1000 == 0) logger.LogTrace($"Processed {total} files. Errors: {errors}");
+                        if (total % 1000 == 0) logger.LogTrace($"Processed {total} files with {errors} invalid files from archive {name}");
                     }
                 }
             }
-            logger.LogInformation($"Processed {total} files. Errors: {errors}");
-            logger.LogTrace($"Processed {total} files. Errors: {errors}");
+            logger.LogInformation($"Processed {total} files with {errors} invalid files from archive {name}");
+            logger.LogTrace($"Processed {total} files with {errors} invalid files from archive {name}");
             return total;
         }
         
        
-        private static async Task<bool> processMessage(string message, DocumentClient client,ILogger logger,string id=null)
+        private static async Task<bool> processMessage(string message, DocumentClient client,ILogger logger,string id=null,string location=null)
         {
            //if (true) return true;
             if (string.IsNullOrEmpty(message)) return false;
@@ -131,6 +140,7 @@ namespace TransformFunctions
                 string rhm = determinerhm(jobj);
                 jobj["id"] = coid;
                 jobj["rhm"] = rhm;
+                if (location != null) jobj["location"] = location;
                 var inserted = await client.UpsertDocumentAsync(UriFactory.CreateDocumentCollectionUri("hl7json", "messages"), jobj);
                 //logger.LogTrace($"Message id {coid} from {rhm} added to Database");
                 return true;
