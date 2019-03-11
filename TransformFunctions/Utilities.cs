@@ -29,6 +29,7 @@ namespace TransformFunctions
             if (o == null) return "";
             if (o.Type == JTokenType.String) return (string)o;
             if (o.Type == JTokenType.Object) return (string)o.First;
+            
             return "";
         }
         public static string GetEnvironmentVariable(string name,string defval=null)

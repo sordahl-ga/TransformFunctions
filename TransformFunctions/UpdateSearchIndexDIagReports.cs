@@ -12,7 +12,6 @@ namespace TransformFunctions
 {
     public static class UpdateSearchIndexDiagReports
     {
-        [Disable]
         [FunctionName("UpdateSearchIndexDiagReports")]
         public static void Run([CosmosDBTrigger(
             databaseName: "hl7json",
@@ -34,22 +33,37 @@ namespace TransformFunctions
                     StringBuilder builder = new StringBuilder();
                     var obj = JObject.Parse(json);
                     string msgtype = Utilities.getFirstField(obj["hl7message"]["MSH"]["MSH.9"]);
-                    if (msgtype.ToLower().Equals("oru"))
+                    if (msgtype.ToLower().Equals("oru") || msgtype.ToLower().Equals("mdm"))
                     {
-                        foreach (var obx in obj["hl7message"]["OBX"])
+                        if (obj["hl7message"]["OBX"].Type == JTokenType.Array)
                         {
-                            if (Utilities.getFirstField(obx["OBX.2"]).Equals("TX"))
+                            foreach (var obx in obj["hl7message"]["OBX"])
+                            {
+                                if (Utilities.getFirstField(obx["OBX.2"]).Equals("TX") || Utilities.getFirstField(obx["OBX.2"]).Equals("FT"))
+                                {
+                                    builder.Append(Utilities.getFirstField(obx["OBX.5"]));
+                                }
+                            }
+                        } else
+                        {
+                            var obx = obj["hl7message"]["OBX"];
+                            if (Utilities.getFirstField(obx["OBX.2"]).Equals("TX") || Utilities.getFirstField(obx["OBX.2"]).Equals("FT"))
                             {
                                 builder.Append(Utilities.getFirstField(obx["OBX.5"]));
                             }
                         }
 		
                     }
+                    
                     string report = builder.ToString();
+                    report = report.Replace(@"\\", @"\");
+
+                    //Send Report to TIKA
+                    string responseFromServer = NLPUtilities.ExtractTextUsingTIKA(Encoding.ASCII.GetBytes(report),Utilities.GetEnvironmentVariable("TIKAServerURL"));
                     //Send Report to NLP
                     CTakesRequest creq = new CTakesRequest()
                     {
-                        Content = report,
+                        Content = responseFromServer,
                         CTAKESUrl = Utilities.GetEnvironmentVariable("CTAKESServerURL"),
                         UMLSUser = Utilities.GetEnvironmentVariable("CTAKESUMLSUser"),
                         UMLSPassword = Utilities.GetEnvironmentVariable("CTAKESUMLSPassword"),

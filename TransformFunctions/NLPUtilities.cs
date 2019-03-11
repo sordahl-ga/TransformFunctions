@@ -7,6 +7,8 @@ using System.IO;
 using System.Linq;
 using Newtonsoft.Json.Linq;
 using Microsoft.Extensions.Logging;
+using System.Web;
+
 namespace TransformFunctions
 {
     public static class NLPUtilities
@@ -138,8 +140,8 @@ namespace TransformFunctions
 
                 // Take a max of X KB of text
                 var subText = creq.Content.Substring(0, Math.Min(500000, creq.Content.Length));
-                var postData = "q=" + subText;
-                postData += "&format=" + creq.Format;
+                var postData = "q=" + HttpUtility.UrlEncode(subText, System.Text.Encoding.ASCII);
+                postData += "&format=" + HttpUtility.UrlEncode(creq.Format, System.Text.Encoding.ASCII);
                 postData += "&umlsuser=" + creq.UMLSUser;
                 postData += "&umlspw=" + creq.UMLSPassword;
                 var data = Encoding.ASCII.GetBytes(postData);

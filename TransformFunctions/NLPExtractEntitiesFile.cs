@@ -16,7 +16,11 @@ namespace TransformFunctions
             try
             {
 
-                string coid = Guid.NewGuid().ToString();
+                string coid = name;
+                int dirend = coid.LastIndexOf("/");
+                if (dirend > -1) coid = coid.Substring(dirend + 1);
+                int extbegin = coid.LastIndexOf(".");
+                if (extbegin > -1) coid = coid.Substring(0, extbegin);
                 string loc = "ingest/documents/" + name;
                 byte[] byteArray = null;
                 using (MemoryStream ms = new MemoryStream())
