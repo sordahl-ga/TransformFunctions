@@ -10,8 +10,10 @@ using System.Text;
 
 namespace TransformFunctions
 {
+
     public static class UpdateSearchIndexDiagReports
     {
+
         [FunctionName("UpdateSearchIndexDiagReports")]
         public static void Run([CosmosDBTrigger(
             databaseName: "hl7json",
@@ -21,13 +23,13 @@ namespace TransformFunctions
             LeaseCollectionPrefix = "srchupd",
             LeaseCollectionName = "leases")]IReadOnlyList<Document> input, ILogger log)
         {
-            
+            log.LogInformation("UpdateSearchIndexDiagReports function triggered");
             if (input != null && input.Count > 0)
             {
                 SearchUtilities search = new SearchUtilities(log);
-                log.LogInformation("Documents modified " + input.Count);
+                log.LogInformation($"There were {input.Count} documents modified in DB..Running NLP/Seach pipeline for modified docs...");
                 List<MedicalEntities> searcharr = new List<MedicalEntities>();
-                foreach(Document d in input)
+                foreach (Document d in input)
                 {
                     string json = d.ToString();
                     StringBuilder builder = new StringBuilder();
@@ -35,50 +37,72 @@ namespace TransformFunctions
                     string msgtype = Utilities.getFirstField(obj["hl7message"]["MSH"]["MSH.9"]);
                     if (msgtype.ToLower().Equals("oru") || msgtype.ToLower().Equals("mdm"))
                     {
-                        if (obj["hl7message"]["OBX"].Type == JTokenType.Array)
+                        if (obj["hl7message"]["OBX"] != null)
                         {
-                            foreach (var obx in obj["hl7message"]["OBX"])
+                            if (obj["hl7message"]["OBX"].Type == JTokenType.Array)
                             {
+                                foreach (var obx in obj["hl7message"]["OBX"])
+                                {
+                                    if (Utilities.getFirstField(obx["OBX.2"]).Equals("TX") || Utilities.getFirstField(obx["OBX.2"]).Equals("FT"))
+                                    {
+                                        builder.Append(Utilities.getFirstField(obx["OBX.5"]));
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                var obx = obj["hl7message"]["OBX"];
                                 if (Utilities.getFirstField(obx["OBX.2"]).Equals("TX") || Utilities.getFirstField(obx["OBX.2"]).Equals("FT"))
                                 {
                                     builder.Append(Utilities.getFirstField(obx["OBX.5"]));
                                 }
                             }
-                        } else
-                        {
-                            var obx = obj["hl7message"]["OBX"];
-                            if (Utilities.getFirstField(obx["OBX.2"]).Equals("TX") || Utilities.getFirstField(obx["OBX.2"]).Equals("FT"))
+                            string report = builder.ToString();
+                            report = report.UnEscapeHL7();
+                            report = report.Replace(@"\\", @"\");
+                            
+                            //Send Report to TIKA
+                            string responseFromServer = NLPUtilities.ExtractTextUsingTIKA(Encoding.UTF8.GetBytes(report), Utilities.GetEnvironmentVariable("TIKAServerURL"));
+                           
+                            if (string.IsNullOrEmpty(responseFromServer) || responseFromServer.Length<3)
                             {
-                                builder.Append(Utilities.getFirstField(obx["OBX.5"]));
-                            }
-                        }
-		
-                    }
-                    
-                    string report = builder.ToString();
-                    report = report.Replace(@"\\", @"\");
+                                log.LogError($"TIKA Server may have failed to parse content {(string)obj["id"]}");
+                               
 
-                    //Send Report to TIKA
-                    string responseFromServer = NLPUtilities.ExtractTextUsingTIKA(Encoding.ASCII.GetBytes(report),Utilities.GetEnvironmentVariable("TIKAServerURL"));
-                    //Send Report to NLP
-                    CTakesRequest creq = new CTakesRequest()
-                    {
-                        Content = responseFromServer,
-                        CTAKESUrl = Utilities.GetEnvironmentVariable("CTAKESServerURL"),
-                        UMLSUser = Utilities.GetEnvironmentVariable("CTAKESUMLSUser"),
-                        UMLSPassword = Utilities.GetEnvironmentVariable("CTAKESUMLSPassword"),
-                        Format = Utilities.GetEnvironmentVariable("CTAKESFormat"),
-                    };
-                    var result = NLPUtilities.ExtractMedicalEntities(creq);
-                    result.Id = (string)obj["id"];
-                    result.Location = (string)obj["rhm"];
-                    searcharr.Add(result);
-                    
+
+                            }
+                            //Send Report to NLP
+                            CTakesRequest creq = new CTakesRequest()
+                            {
+                                Content = responseFromServer,
+                                CTAKESUrl = Utilities.GetEnvironmentVariable("CTAKESServerURL"),
+                                UMLSUser = Utilities.GetEnvironmentVariable("CTAKESUMLSUser"),
+                                UMLSPassword = Utilities.GetEnvironmentVariable("CTAKESUMLSPassword"),
+                                Format = Utilities.GetEnvironmentVariable("CTAKESFormat"),
+                            };
+                            var result = NLPUtilities.ExtractMedicalEntities(creq);
+                            result.Id = (string)obj["id"];
+                            result.Location = (string)obj["rhm"];
+                            if (string.IsNullOrEmpty(result.ParsedText)) result.ParsedText = responseFromServer;
+                            string doctype = "";
+                            if (msgtype.Equals("MDM"))
+                            {
+                                doctype = Utilities.getFirstField(obj["hl7message"]["TXA"]["TXA.2"]);
+                            }
+                            if (doctype == null) doctype = "";
+                            result.DocumentType = doctype;
+                            searcharr.Add(result);
+                        }
+
+
+
+                    }
+
                 }
-                search.UploadMedicalEntities(searcharr.ToArray());
+                if (searcharr.Count > 0) search.UploadMedicalEntities(searcharr.ToArray());
             }
+            log.LogInformation("UpdateSearchIndexDiagReports function completed");
+
         }
-       
-       
     }
 }

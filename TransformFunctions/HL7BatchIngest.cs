@@ -62,7 +62,8 @@ namespace TransformFunctions
                         {
                             int removetype = name.LastIndexOf(".");
                             if (removetype < 0) removetype = name.Length;
-                            await processMessage(message.ToString(), client, log, name.Substring(0, removetype),name);
+                            byte[] bytes = Encoding.Default.GetBytes(message.ToString());
+                            await processMessage(Encoding.UTF8.GetString(bytes), client, log, name.Substring(0, removetype),name);
                             total++;
                             message.Clear();
                         }
@@ -74,7 +75,8 @@ namespace TransformFunctions
                     {
                         int removetype = name.LastIndexOf(".");
                         if (removetype < 0) removetype = name.Length;
-                        await processMessage(message.ToString(), client, log, name.Substring(0, removetype),name);
+                        byte[] bytes = Encoding.Default.GetBytes(message.ToString());
+                        await processMessage(Encoding.UTF8.GetString(bytes), client, log, name.Substring(0, removetype), name);
                         total++;
                     }
                 }

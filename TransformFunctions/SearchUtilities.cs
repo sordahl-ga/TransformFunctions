@@ -57,6 +57,7 @@ namespace TransformFunctions
                 indexDoc.SearchId = Guid.NewGuid().ToString();
                 indexDoc.StorageId = medicaEntities.Id;
                 indexDoc.StorageLocation = medicaEntities.Location;
+                indexDoc.DocumentType = medicaEntities.DocumentType;
                 indexDoc.medical_mentions = medicaEntities.MedicationMentionList.Select(x => x.term).Distinct().ToArray();
                 indexDoc.medical_mention_concepts = MedicationMentionNames.Distinct().ToArray();
                 indexDoc.medical_mention_codes = MedicationMentionCodes.Distinct().ToArray();

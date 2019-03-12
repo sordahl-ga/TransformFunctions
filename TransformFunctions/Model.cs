@@ -23,6 +23,8 @@ namespace TransformFunctions
         [IsFilterable]
         public string StorageLocation { get; set; }
         [IsSearchable, IsFilterable, IsFacetable]
+        public string DocumentType { get; set; }
+        [IsSearchable, IsFilterable, IsFacetable]
         public string[] medical_mentions { get; set; }
 
         [IsSearchable, IsFilterable, IsFacetable]
@@ -74,6 +76,7 @@ namespace TransformFunctions
     {
         public string Id { get; set; }
         public string Location { get; set; }
+        public string DocumentType { get; set; }
         public string ParsedText { get; set; }
         public List<Term> DiseaseDisorderList { get; set; }
         public List<Term> MedicationMentionList { get; set; }

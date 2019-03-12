@@ -88,7 +88,7 @@ namespace TransformFunctions
         {
            
             // Create a request using a URL that can receive a post. 
-            WebRequest request = WebRequest.Create(tikaserverurl);
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(tikaserverurl);
             // Set the Method property of the request to POST.
             request.Method = "PUT";
             // Create POST data and convert it to a byte array.
@@ -97,6 +97,7 @@ namespace TransformFunctions
             //request.ContentType = "application/x-www-form-urlencoded";
             // Set the ContentLength property of the WebRequest.
             request.ContentLength = byteArray.Length;
+            //Console.WriteLine("Report:" + Encoding.UTF8.GetString(byteArray));
             // Get the request stream.
             using (Stream dataStream = request.GetRequestStream())
             {
@@ -104,9 +105,10 @@ namespace TransformFunctions
                 dataStream.Write(byteArray, 0, byteArray.Length);
             }
             // Get the response.
-            WebResponse response = request.GetResponse();
+            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+            
             // Display the status.
-            //Console.WriteLine(((HttpWebResponse)response).StatusDescription);
+            //Console.WriteLine(response.StatusDescription);
             // Get the stream containing content returned by the server.
             string responseFromServer = "";
             using (Stream dataStream = response.GetResponseStream())
