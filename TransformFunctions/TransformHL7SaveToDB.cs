@@ -10,11 +10,27 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using Microsoft.Azure.Documents.Client;
 using System.Net;
+using System.Security.Claims;
+using System.Threading;
+using System.Text;
 
 namespace TransformFunctions
 {
     public static class TransformHL7SaveToDB
     {
+        private static string extractClaims(ClaimsPrincipal p)
+        {
+           
+            StringBuilder retVal = new StringBuilder();
+            if (p != null) { 
+                ClaimsIdentity identity = p.Identity as ClaimsIdentity;
+                foreach (var claim in identity.Claims)
+                {
+                    retVal.Append($"{claim.Type} = {claim.Value};");
+                }
+            }
+            return retVal.ToString();
+        }
         [FunctionName("TransformHL7SaveToDB")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
@@ -22,6 +38,7 @@ namespace TransformFunctions
                 databaseName:"hl7json",
                 collectionName :"messages",
                 ConnectionStringSetting = "CosmosDBConnection")] DocumentClient client,
+            ClaimsPrincipal claimsPrincipal,
             ILogger log)
         {
             string contenttype = string.IsNullOrEmpty(req.ContentType) ? "application/hl7-v2+er7; charset=utf-8" : req.ContentType;
@@ -38,6 +55,7 @@ namespace TransformFunctions
                 jobj["id"] = coid;
                 jobj["rhm"] = rhm;
                 var inserted = await client.UpsertDocumentAsync(UriFactory.CreateDocumentCollectionUri("hl7json","messages"), jobj);
+                log.LogTrace("AuditEvent\r\nAction:insert\r\nDocumentId:" + coid + "\r\nDestination:" + client.ServiceEndpoint.OriginalString + "\r\nDB-Collection:hl7json/messages\r\nClaims:" + extractClaims(claimsPrincipal) + "\r\n");
                 var retVal = new ContentResult();
                 retVal.ContentType = contenttype;
                 retVal.Content = Utilities.GenerateACK(jobj);
