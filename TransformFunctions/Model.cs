@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace TransformFunctions
 {
+    
     [SerializePropertyNamesAsCamelCase]
     public partial class IndexSchema
     {

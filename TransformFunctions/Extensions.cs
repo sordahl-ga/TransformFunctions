@@ -1,0 +1,125 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Http;
+using Newtonsoft.Json.Linq;
+using System.Threading.Tasks;
+using Microsoft.Azure.Documents.Linq;
+
+namespace TransformFunctions
+{
+    public class PagedResults<T>
+    {
+        public PagedResults()
+        {
+            Results = new List<T>();
+        }
+        /// <summary>
+        /// Continuation Token for DocumentDB
+        /// </summary>
+        public string ContinuationToken { get; set; }
+
+        /// <summary>
+        /// Results
+        /// </summary>
+        public List<T> Results { get; set; }
+    }
+    public static class Extensions
+    {
+        private static Regex REGEX = new Regex(@"\\X[0-9A-F]{2,10}\\");
+        private static string parseHex(string hex)
+        {
+
+            string s = hex.Substring(2, hex.Length - 3);
+            List<char> convert = new List<char>();
+            while (s.Length > 1)
+            {
+                string p = s.Substring(0, 2);
+                var c = (char)Int16.Parse(p, NumberStyles.AllowHexSpecifier);
+                convert.Add(c);
+                s = s.Substring(2);
+            }
+            return new string(convert.ToArray());
+
+        }
+        private static string UnEscapeHL7Hex(string s)
+        {
+            while (true)
+            {
+                Match match = REGEX.Match(s);
+                if (match.Success)
+                {
+                    var r = parseHex(match.Value);
+                    s = s.Replace(match.Value, r);
+
+                }
+                else
+                {
+                    break;
+                }
+            }
+            return s;
+        }
+        public static string UnEscapeHL7(this string str)
+        {
+                var r =  str.Replace("\\T\\", "&").Replace("\\S\\", "^").Replace("\\E\\", "\\").Replace("\\R\\", "~").Replace("\\.br\\","\\n");
+                return UnEscapeHL7Hex(r);
+        }
+        public static string GetFirstField(this JToken o)
+        {
+            if (o == null) return "";
+            if (o.Type == JTokenType.String) return (string)o;
+            if (o.Type == JTokenType.Object) return (string)o.First;
+            return "";
+        }
+            public static string GetIPAddress(this HttpRequest Request)
+            {
+                if (Request.Headers.Keys.Contains("CF-CONNECTING-IP")) return Request.Headers["CF-CONNECTING-IP"].ToString();
+
+                if (Request.Headers.Keys.Contains("HTTP_X_FORWARDED_FOR"))
+                {
+                    string ipAddress = Request.Headers["HTTP_X_FORWARDED_FOR"];
+
+                    if (!string.IsNullOrEmpty(ipAddress))
+                    {
+                        string[] addresses = ipAddress.Split(',');
+                        if (addresses.Length != 0)
+                        {
+                            return addresses[0];
+                        }
+                    }
+                }
+
+                return Request.Host.ToString();
+            }
+            public static async Task<PagedResults<T>> ToPagedResults<T>(this IQueryable<T> source)
+            {
+                var documentQuery = source.AsDocumentQuery();
+                var results = new PagedResults<T>();
+
+                try
+                {
+                    var queryResult = await documentQuery.ExecuteNextAsync<T>();
+                    if (!queryResult.Any())
+                    {
+                        return results;
+                    }
+                    results.ContinuationToken = queryResult.ResponseContinuation;
+                    results.Results.AddRange(queryResult);
+                }
+                catch (Exception e2)
+                {
+                    //documentQuery.ExecuteNextAsync throws an Exception if there are no results
+                    return results;
+                }
+
+                return results;
+            }
+
+        
+
+    }
+}

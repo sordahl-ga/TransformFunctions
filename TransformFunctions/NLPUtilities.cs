@@ -37,10 +37,14 @@ namespace TransformFunctions
                 if (sb.Length > 0)
                 {
                     string s = ExtractReportFromHL7(sb.ToString());
-                    if (!String.IsNullOrEmpty(s)) retVal.Add(s);
+                    if (!String.IsNullOrEmpty(s))
+                    {
+                        string extractstr = ExtractTextUsingTIKA(Encoding.UTF8.GetBytes(s), Utilities.GetEnvironmentVariable("TIKAServerURL"));
+                        retVal.Add(extractstr);
+                    }
                 }
-
-
+            
+            //FHIR HTML
             } else if (report.TrimStart().StartsWith("{") || report.TrimStart().StartsWith("["))
             {
                 try
@@ -51,9 +55,9 @@ namespace TransformFunctions
                     {
                         if (obj["text"] != null)
                         {
-                                retVal.Add(obj["text"]["div"].GetFirstField().UnEscapeHL7());
+                                retVal.Add(obj["text"]["div"].GetFirstField());
                         }
-                                            }
+                    }
                 }
                 catch (Exception e)
                 {
@@ -71,13 +75,23 @@ namespace TransformFunctions
             JObject obj = HL7ToXmlConverter.ConvertToJObject(hl7);
             string msgtype = obj["hl7message"]["MSH"]["MSH.9"].GetFirstField();
             StringBuilder builder = new StringBuilder();
-            if (msgtype.ToLower().Equals("oru"))
+            if (msgtype.Equals("ORU") || msgtype.Equals("MDM"))
             {
-                foreach (var obx in obj["hl7message"]["OBX"])
+                if (obj["hl7message"]["OBX"] is JArray)
                 {
-                    if (Utilities.getFirstField(obx["OBX.2"]).Equals("TX"))
+                    foreach (var obx in obj["hl7message"]["OBX"])
                     {
-                        builder.Append(Utilities.getFirstField(obx["OBX.5"]));
+                        if (Utilities.getFirstField(obx["OBX.2"]).Equals("TX") || Utilities.getFirstField(obx["OBX.2"]).Equals("FT"))
+                        {
+                            builder.Append(Utilities.getFirstField(obx["OBX.5"]).UnEscapeHL7());
+                        }
+                    }
+                }
+                else
+                {
+                    if(Utilities.getFirstField(obj["hl7message"]["OBX"]["OBX.2"]).Equals("TX") || Utilities.getFirstField(obj["hl7message"]["OBX"]["OBX.2"]).Equals("FT"))
+                    {
+                        builder.Append(Utilities.getFirstField(obj["hl7message"]["OBX"]["OBX.5"]).UnEscapeHL7());
                     }
                 }
 

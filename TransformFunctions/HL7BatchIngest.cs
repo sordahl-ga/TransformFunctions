@@ -93,7 +93,6 @@ namespace TransformFunctions
             int total = 0, errors = 0;
             logger.LogInformation($"Decompressing and extracting files from {name}...");
             
-            // A GZipStream is not seekable, so copy it first to a FileStream
             using (var sourceStream = new GZipInputStream(stream))
             {
                 using (TarInputStream tarIn = new TarInputStream(sourceStream))

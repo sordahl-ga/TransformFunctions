@@ -18,19 +18,6 @@ namespace TransformFunctions
 {
     public static class TransformHL7SaveToDB
     {
-        private static string extractClaims(ClaimsPrincipal p)
-        {
-           
-            StringBuilder retVal = new StringBuilder();
-            if (p != null) { 
-                ClaimsIdentity identity = p.Identity as ClaimsIdentity;
-                foreach (var claim in identity.Claims)
-                {
-                    retVal.Append($"{claim.Type} = {claim.Value};");
-                }
-            }
-            return retVal.ToString();
-        }
         [FunctionName("TransformHL7SaveToDB")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
@@ -54,8 +41,10 @@ namespace TransformFunctions
                 string rhm = determinerhm(jobj);
                 jobj["id"] = coid;
                 jobj["rhm"] = rhm;
-                var inserted = await client.UpsertDocumentAsync(UriFactory.CreateDocumentCollectionUri("hl7json","messages"), jobj);
-                log.LogTrace("AuditEvent\r\nAction:insert\r\nDocumentId:" + coid + "\r\nDestination:" + client.ServiceEndpoint.OriginalString + "\r\nDB-Collection:hl7json/messages\r\nClaims:" + extractClaims(claimsPrincipal) + "\r\n");
+                jobj["location"] = req.GetIPAddress() ?? "";
+                Uri collection = UriFactory.CreateDocumentCollectionUri("hl7json", "messages");
+                var inserted = await client.UpsertDocumentAsync(collection, jobj);
+                Utilities.TraceAccess(log, claimsPrincipal, client, collection, Utilities.ACTION.UPSERT, coid);
                 var retVal = new ContentResult();
                 retVal.ContentType = contenttype;
                 retVal.Content = Utilities.GenerateACK(jobj);
