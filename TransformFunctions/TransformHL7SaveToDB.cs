@@ -22,8 +22,8 @@ namespace TransformFunctions
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
             [CosmosDB(
-                databaseName:"hl7json",
-                collectionName :"messages",
+                databaseName:"%CosmosDBNAME%",
+                collectionName :"%CosmosHL7Collection%",
                 ConnectionStringSetting = "CosmosDBConnection")] DocumentClient client,
             ClaimsPrincipal claimsPrincipal,
             ILogger log)

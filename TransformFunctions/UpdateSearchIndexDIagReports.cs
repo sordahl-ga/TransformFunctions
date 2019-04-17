@@ -16,8 +16,8 @@ namespace TransformFunctions
 
         [FunctionName("UpdateSearchIndexDiagReports")]
         public static void Run([CosmosDBTrigger(
-            databaseName: "hl7json",
-            collectionName: "messages",
+            databaseName: "%CosmosDBNAME%",
+            collectionName: "%CosmosHL7Collection%",
             ConnectionStringSetting = "CosmosDBConnection",
             CreateLeaseCollectionIfNotExists = true,
             LeaseCollectionPrefix = "srchupd",

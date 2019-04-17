@@ -18,7 +18,7 @@ namespace TransformFunctions
         [FunctionName("TransformHL7SaveToBlob")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
-            [Blob("hl7json", Connection ="StorageAccount")] CloudBlobContainer container, ILogger log)
+            [Blob("%StorageAccountBlob%", Connection ="StorageAccount")] CloudBlobContainer container, ILogger log)
         {
             string contenttype = req.ContentType;
             log.LogInformation("C# TransformSaveToBlob HTTP trigger function fired");
