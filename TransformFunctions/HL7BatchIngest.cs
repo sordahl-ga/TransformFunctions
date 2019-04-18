@@ -31,10 +31,10 @@ namespace TransformFunctions
     public static class HL7BatchIngest
     {
         [FunctionName("HL7BatchIngest")]
-        public static void Run([BlobTrigger("hl7json/ingest/hl7batch/{name}", Connection = "StorageAccount")]Stream myBlob,
+        public static void Run([BlobTrigger("%StorageAccountBlob%/ingest/hl7batch/{name}", Connection = "StorageAccount")]Stream myBlob,
             [CosmosDB(
-                databaseName:"hl7json",
-                collectionName :"messages",
+                databaseName:"%CosmosDBNAME%",
+                collectionName :"%CosmosHL7Collection%",
                 ConnectionStringSetting = "CosmosDBConnection")] DocumentClient client, string name, ILogger log)
         {
             try
