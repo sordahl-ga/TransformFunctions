@@ -31,10 +31,10 @@ namespace TransformFunctions
     public static class HL7BatchIngest
     {
         [FunctionName("HL7BatchIngest")]
-        public static void Run([BlobTrigger("hl7json/ingest/hl7batch/{name}", Connection = "StorageAccount")]Stream myBlob,
+        public static void Run([BlobTrigger("%StorageAccountBlob%/ingest/hl7batch/{name}", Connection = "StorageAccount")]Stream myBlob,
             [CosmosDB(
-                databaseName:"hl7json",
-                collectionName :"messages",
+                databaseName:"%CosmosDBNAME%",
+                collectionName :"%CosmosHL7Collection%",
                 ConnectionStringSetting = "CosmosDBConnection")] DocumentClient client, string name, ILogger log)
         {
             try
@@ -59,9 +59,9 @@ namespace TransformFunctions
             {
                 log.LogError($"Error Processing messages from HL7 Batch Blob {name}: {e.Message}", e);
             }
-            
+
         }
-        private static async Task<int> processUncompressedFile(Stream stream,DocumentClient client, ILogger log,string name)
+        private static async Task<int> processUncompressedFile(Stream stream, DocumentClient client, ILogger log, string name)
         {
             string line;
             int total = 0;
@@ -77,7 +77,7 @@ namespace TransformFunctions
                             int removetype = name.LastIndexOf(".");
                             if (removetype < 0) removetype = name.Length;
                             byte[] bytes = Encoding.Default.GetBytes(message.ToString());
-                            await processMessage(Encoding.UTF8.GetString(bytes), client, log, name.Substring(0, removetype),name);
+                            await processMessage(Encoding.UTF8.GetString(bytes), client, log, name.Substring(0, removetype), name);
                             total++;
                             message.Clear();
                         }
@@ -94,7 +94,7 @@ namespace TransformFunctions
                         total++;
                     }
                 }
-                 return total;
+                return total;
             }
             catch (Exception e)
             {
@@ -106,7 +106,7 @@ namespace TransformFunctions
         {
             int total = 0, errors = 0;
             logger.LogInformation($"Decompressing and extracting files from {name}...");
-            
+
             using (var sourceStream = new GZipInputStream(stream))
             {
                 using (TarInputStream tarIn = new TarInputStream(sourceStream))
@@ -120,7 +120,7 @@ namespace TransformFunctions
                         var str = new MemoryStream();
                         tarIn.CopyEntryContents(str);
                         bytes = str.ToArray();
-                        var rslt = await processMessage(Encoding.UTF8.GetString(bytes), client, logger, tarEntry.Name,name);
+                        var rslt = await processMessage(Encoding.UTF8.GetString(bytes), client, logger, tarEntry.Name, name);
                         total++;
                         if (!rslt)
                         {
@@ -135,15 +135,15 @@ namespace TransformFunctions
             logger.LogTrace($"Processed {total} files with {errors} invalid files from archive {name}");
             return total;
         }
-        
-       
-        private static async Task<bool> processMessage(string message, DocumentClient client,ILogger logger,string id=null,string location=null)
+
+
+        private static async Task<bool> processMessage(string message, DocumentClient client, ILogger logger, string id = null, string location = null)
         {
-           //if (true) return true;
+            //if (true) return true;
             if (string.IsNullOrEmpty(message)) return false;
             string coid = (id ?? Guid.NewGuid().ToString());
             int dirend = coid.LastIndexOf("/");
-            if (dirend > -1) coid = coid.Substring(dirend+1);
+            if (dirend > -1) coid = coid.Substring(dirend + 1);
             int extbegin = coid.LastIndexOf(".");
             if (extbegin > -1) coid = coid.Substring(0, extbegin);
             JObject jobj = null;
@@ -168,7 +168,7 @@ namespace TransformFunctions
         }
         private static string determinerhm(JObject obj)
         {
-            if (obj==null || obj["hl7message"] == null || obj["hl7message"]["MSH"]==null) return "";
+            if (obj == null || obj["hl7message"] == null || obj["hl7message"]["MSH"] == null) return "";
             string instance = Utilities.getFirstField(obj["hl7message"]["MSH"]["MSH.3"]);
             string source = Utilities.getFirstField(obj["hl7message"]["MSH"]["MSH.4"]);
             return (instance != null ? instance + "-" + (source ?? "") : "");
