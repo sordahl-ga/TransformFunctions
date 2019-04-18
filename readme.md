@@ -20,7 +20,7 @@ Health Data Platform Supporting Transformation Azure Functions
 
 + HL7BatchIngest -- Extracts single or bulk hl7 messages contained in single files or compressed tar balls, converts each message to a JSON Object and saves it to the configured CosmosDB Collection
 
-##Required Application Settings
+## Required Application Settings
 
 The application settings that need to be configured for the transform functions:
 ```
