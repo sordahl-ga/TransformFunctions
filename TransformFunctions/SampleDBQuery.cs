@@ -33,6 +33,7 @@ namespace TransformFunctions
     {
         [Disable]
         [FunctionName("SampleDBQuery")]
+        /* Demonstrates how to query HL7 Json Collection in CosmosDB audits access to data with claims principal */
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "get", "post", Route = null)] HttpRequest req,
             [CosmosDB(
