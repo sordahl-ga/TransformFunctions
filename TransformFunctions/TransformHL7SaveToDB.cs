@@ -56,7 +56,7 @@ namespace TransformFunctions
                 jobj["id"] = coid;
                 jobj["rhm"] = rhm;
                 jobj["location"] = req.GetIPAddress() ?? "";
-                Uri collection = UriFactory.CreateDocumentCollectionUri("hl7json", "messages");
+                Uri collection = UriFactory.CreateDocumentCollectionUri("%CosmosDBNAME%", "%CosmosHL7Collection%");
                 var inserted = await client.UpsertDocumentAsync(collection, jobj);
                 Utilities.TraceAccess(log, claimsPrincipal, client, collection, Utilities.ACTION.UPSERT, coid);
                 var retVal = new ContentResult();

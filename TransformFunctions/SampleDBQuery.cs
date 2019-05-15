@@ -44,7 +44,7 @@ namespace TransformFunctions
             ILogger log)
         {
             string querystr = "select top 100 VALUE c from c where c['hl7message']['MSH']['MSH.9']['MSH.9.1']='PPR'";
-            var collection = UriFactory.CreateDocumentCollectionUri("hl7json", "messages");
+            var collection = UriFactory.CreateDocumentCollectionUri("%CosmosDBNAME%", "%CosmosHL7Collection%");
             int pagesize = 10;
             var options = new FeedOptions() { MaxItemCount = pagesize, EnableCrossPartitionQuery = true };
             var continuationToken = string.Empty;
