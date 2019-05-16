@@ -27,6 +27,8 @@ using System.Net;
 using System.Security.Claims;
 using System.Threading;
 using System.Text;
+using Microsoft.Extensions.Configuration;
+
 
 namespace TransformFunctions
 {
@@ -40,8 +42,13 @@ namespace TransformFunctions
                 collectionName :"%CosmosHL7Collection%",
                 ConnectionStringSetting = "CosmosDBConnection")] DocumentClient client,
             ClaimsPrincipal claimsPrincipal,
-            ILogger log)
+            ILogger log, Microsoft.Azure.WebJobs.ExecutionContext context)
         {
+            var config = new ConfigurationBuilder()
+                .SetBasePath(context.FunctionAppDirectory)
+                .AddJsonFile("local.settings.json", optional: true, reloadOnChange: true)
+                .AddEnvironmentVariables()
+                .Build();
             string contenttype = string.IsNullOrEmpty(req.ContentType) ? "application/hl7-v2+er7; charset=utf-8" : req.ContentType;
             log.LogInformation("C# TransformSaveToDB HTTP trigger function fired");
             string coid = req.Query["id"];
@@ -56,7 +63,7 @@ namespace TransformFunctions
                 jobj["id"] = coid;
                 jobj["rhm"] = rhm;
                 jobj["location"] = req.GetIPAddress() ?? "";
-                Uri collection = UriFactory.CreateDocumentCollectionUri("%CosmosDBNAME%", "%CosmosHL7Collection%");
+                Uri collection = UriFactory.CreateDocumentCollectionUri(config["CosmosDBNAME"], config["CosmosHL7Collection"]);
                 var inserted = await client.UpsertDocumentAsync(collection, jobj);
                 Utilities.TraceAccess(log, claimsPrincipal, client, collection, Utilities.ACTION.UPSERT, coid);
                 var retVal = new ContentResult();

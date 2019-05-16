@@ -26,6 +26,7 @@ using Microsoft.Azure.Documents;
 using System.Collections.Generic;
 using System.Security.Claims;
 using System.Text;
+using Microsoft.Extensions.Configuration;
 
 namespace TransformFunctions
 {
@@ -41,10 +42,15 @@ namespace TransformFunctions
                 collectionName :"%CosmosHL7Collection%",
                 ConnectionStringSetting = "CosmosDBConnection")] DocumentClient client,
                  ClaimsPrincipal claimsPrincipal,
-            ILogger log)
+            ILogger log, Microsoft.Azure.WebJobs.ExecutionContext context)
         {
+            var config = new ConfigurationBuilder()
+               .SetBasePath(context.FunctionAppDirectory)
+               .AddJsonFile("local.settings.json", optional: true, reloadOnChange: true)
+               .AddEnvironmentVariables()
+               .Build();
             string querystr = "select top 100 VALUE c from c where c['hl7message']['MSH']['MSH.9']['MSH.9.1']='PPR'";
-            var collection = UriFactory.CreateDocumentCollectionUri("%CosmosDBNAME%", "%CosmosHL7Collection%");
+            var collection = UriFactory.CreateDocumentCollectionUri(config["CosmosDBNAME"], config["CosmosHL7Collection"]);
             int pagesize = 10;
             var options = new FeedOptions() { MaxItemCount = pagesize, EnableCrossPartitionQuery = true };
             var continuationToken = string.Empty;

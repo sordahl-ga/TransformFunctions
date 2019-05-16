@@ -25,6 +25,8 @@ using System.Xml;
 using Microsoft.Azure.Documents.Client;
 using System.Security.Claims;
 using Newtonsoft.Json.Linq;
+using Microsoft.Extensions.Configuration;
+
 namespace TransformFunctions
 {
     public static class TransformCCDSaveToDB
@@ -37,10 +39,15 @@ namespace TransformFunctions
                 collectionName :"%CosmosCCDCollection%",
                 ConnectionStringSetting = "CosmosDBConnection")] DocumentClient client,
             ClaimsPrincipal claimsPrincipal,
-            ILogger log)
+            ILogger log, Microsoft.Azure.WebJobs.ExecutionContext context)
         {
-            
-           
+            var config = new ConfigurationBuilder()
+                .SetBasePath(context.FunctionAppDirectory)
+                .AddJsonFile("local.settings.json", optional: true, reloadOnChange: true)
+                .AddEnvironmentVariables()
+                .Build();
+
+
             try
             {
                 string coid = req.Query["id"];
@@ -61,7 +68,7 @@ namespace TransformFunctions
                 jobj["ccd"] = ccdobj;
                 if (persist)
                 {
-                    Uri collection = UriFactory.CreateDocumentCollectionUri("%CosmosDBNAME%", "%CosmosCCDCollection%");
+                    Uri collection = UriFactory.CreateDocumentCollectionUri(config["CosmosDBNAME"], config["CosmosHL7Collection"]);
                     var inserted = await client.UpsertDocumentAsync(collection, jobj);
                     Utilities.TraceAccess(log, claimsPrincipal, client, collection, Utilities.ACTION.UPSERT, coid);
                 }
