@@ -40,7 +40,7 @@ namespace TransformFunctions
                 log.LogInformation("NLP Extract Entities Http called");
                 try
                 {
-                    
+                    string handwritten = req.Query["handwritten"];
                     string coid = req.Query["id"];
                     if (coid == null) coid = Guid.NewGuid().ToString();
                     string loc = req.Query["location"];
@@ -53,8 +53,18 @@ namespace TransformFunctions
                     await req.Body.CopyToAsync(stream);
                     byteArray = stream.ToArray();
                     }
-                    //string responseFromServer = Encoding.UTF8.GetString(byteArray);
-                    string responseFromServer = NLPUtilities.ExtractTextUsingTIKA(byteArray, Utilities.GetEnvironmentVariable("TIKAServerURL"));
+                    string cogurl = Utilities.GetEnvironmentVariable("CogServicesOCRURL");
+                    if (handwritten != null) cogurl += "?mode=Handwritten";
+                    string responseFromServer = NLPUtilities.ExtractTextUsingCogServices(byteArray, cogurl, Utilities.GetEnvironmentVariable("CogServicesKey"));
+                    if (string.IsNullOrEmpty(responseFromServer))
+                    {
+                        responseFromServer = NLPUtilities.ExtractTextUsingTIKA(byteArray, Utilities.GetEnvironmentVariable("TIKAServerurl"));
+                    }
+                    if (responseFromServer.StartsWith("TIMEOUT~"))
+                    {
+                        return new JsonResult(JObject.Parse("{\"id\":\"" + coid + "\",\"status\":\"Timeout\",\"readresulturl\":\"" + responseFromServer.Split("~")[1] + "\"}"));
+                    }
+                    
                     //Extract Reports From Content (Auto-Detect Medical Exchange Formats (CDA, HL7, FHIR))
                     List<string> medreports = NLPUtilities.ExtractMedicalReportData(responseFromServer,log);
                     List<MedicalEntities> retVal = new List<MedicalEntities>();

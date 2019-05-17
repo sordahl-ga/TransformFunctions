@@ -74,16 +74,20 @@ namespace TransformFunctions
                             string report = builder.ToString();
                             report = report.UnEscapeHL7();
                             report = report.Replace(@"\\", @"\");
-                            
-                            //Send Report to TIKA
-                            string responseFromServer = NLPUtilities.ExtractTextUsingTIKA(Encoding.UTF8.GetBytes(report), Utilities.GetEnvironmentVariable("TIKAServerURL"));
-                           
+
+                            string cogurl = Utilities.GetEnvironmentVariable("CogServicesOCRURL");
+                            string responseFromServer = NLPUtilities.ExtractTextUsingCogServices(Encoding.UTF8.GetBytes(report), cogurl, Utilities.GetEnvironmentVariable("CogServicesKey"));
+                            if (string.IsNullOrEmpty(responseFromServer))
+                            {
+                                responseFromServer = NLPUtilities.ExtractTextUsingTIKA(Encoding.UTF8.GetBytes(report), Utilities.GetEnvironmentVariable("TIKAServerurl"));
+                            }
+                            if (responseFromServer.StartsWith("TIMEOUT~"))
+                            {
+                                log.LogTrace("{\"id\":\"" + Utilities.getFirstField(obj["id"]) + "\",\"status\":\"Timeout\",\"readresulturl\":\"" + responseFromServer.Split("~")[1] + "\"}");
+                            }
                             if (string.IsNullOrEmpty(responseFromServer) || responseFromServer.Length<3)
                             {
                                 log.LogError($"TIKA Server may have failed to parse content {(string)obj["id"]}");
-                               
-
-
                             }
                             //Send Report to NLP
                             CTakesRequest creq = new CTakesRequest()
