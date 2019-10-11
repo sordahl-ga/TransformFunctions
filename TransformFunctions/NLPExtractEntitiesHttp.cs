@@ -40,6 +40,8 @@ namespace TransformFunctions
                 log.LogInformation("NLP Extract Entities Http called");
                 try
                 {
+                    string doctype = req.Query["doctype"];
+                    if (doctype == null) doctype = "Unkown Doc Type";
                     string handwritten = req.Query["handwritten"];
                     string coid = req.Query["id"];
                     if (coid == null) coid = Guid.NewGuid().ToString();
@@ -82,6 +84,7 @@ namespace TransformFunctions
                         var result = NLPUtilities.ExtractMedicalEntities(creq);
                         result.Id = coid;
                         result.Location = loc;
+                        result.DocumentType = doctype;
                         retVal.Add(result);
                     }
                     if (updatesearch !=null)

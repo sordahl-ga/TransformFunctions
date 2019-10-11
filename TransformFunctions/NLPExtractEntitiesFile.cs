@@ -75,6 +75,7 @@ namespace TransformFunctions
                     var result = NLPUtilities.ExtractMedicalEntities(creq);
                     result.Id = coid;
                     result.Location = loc;
+                    result.DocumentType = name;
                     retVal.Add(result);
                 }
                 log.LogInformation("Updateing search index with content and medical entities from hl7json/ingest/documents/" + name);
