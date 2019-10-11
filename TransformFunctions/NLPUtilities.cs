@@ -22,6 +22,8 @@ using System.Linq;
 using Newtonsoft.Json.Linq;
 using Microsoft.Extensions.Logging;
 using System.Web;
+using System.Net.Http;
+using System.Net.Http.Headers;
 
 namespace TransformFunctions
 {
@@ -53,7 +55,12 @@ namespace TransformFunctions
                     string s = ExtractReportFromHL7(sb.ToString());
                     if (!String.IsNullOrEmpty(s))
                     {
-                        string extractstr = ExtractTextUsingTIKA(Encoding.UTF8.GetBytes(s), Utilities.GetEnvironmentVariable("TIKAServerURL"));
+                        string cogurl = Utilities.GetEnvironmentVariable("CogServicesOCRURL");
+                        string extractstr = NLPUtilities.ExtractTextUsingCogServices(Encoding.UTF8.GetBytes(s), cogurl, Utilities.GetEnvironmentVariable("CogServicesKey"));
+                        if (string.IsNullOrEmpty(extractstr))
+                        {
+                            extractstr = NLPUtilities.ExtractTextUsingTIKA(Encoding.UTF8.GetBytes(s), Utilities.GetEnvironmentVariable("TIKAServerurl"));
+                        }
                         retVal.Add(extractstr);
                     }
                 }
@@ -112,9 +119,87 @@ namespace TransformFunctions
             }
             return builder.ToString();
         }
+        public static string ExtractTextUsingCogServices(byte[] byteArray, string cogservurl,string cogservkey)
+        {
+            if (string.IsNullOrEmpty(cogservurl) || string.IsNullOrEmpty(cogservkey)) return "";
+            HttpWebRequest request = (HttpWebRequest)WebRequest.Create(cogservurl);
+            request.Method = "POST";
+            request.Headers.Add("Ocp-Apim-Subscription-Key:" + cogservkey);
+            request.Headers.Add("Content-Type:application/octet-stream");
+            request.ContentLength = byteArray.Length;
+            using (Stream dataStream = request.GetRequestStream())
+            {
+                // Write the data to the request stream.
+                dataStream.Write(byteArray, 0, byteArray.Length);
+            }
+            // Get the response.
+            HttpWebResponse response = (HttpWebResponse)request.GetResponse();
+            // Display the status.
+            //Console.WriteLine(response.StatusDescription);
+            // Get the stream containing content returned by the server.
+            string responseFromServer = "";
+            using (Stream dataStream = response.GetResponseStream())
+            {
+                // Open the stream using a StreamReader for easy access.
+                using (StreamReader reader = new StreamReader(dataStream))
+                {
+                    // Read the content.
+                    responseFromServer = reader.ReadToEnd();
+                }
+            }
+            if (response.StatusCode != HttpStatusCode.Accepted)
+            {
+                return null;
+            }
+            bool success = false;
+            string rslt = null;
+            int waitcount = 0;
+            StringBuilder sb = new StringBuilder();
+            while (!success)
+            {
+                string oploc = response.GetResponseHeader("Operation-Location");
+                //Check Status
+                rslt = "";
+                sb.Clear();
+                HttpWebRequest statusreq = (HttpWebRequest)WebRequest.Create(oploc);
+                statusreq.Headers.Add("Ocp-Apim-Subscription-Key:" + cogservkey);
+                using (HttpWebResponse statresponse = (HttpWebResponse)statusreq.GetResponse())
+                using (Stream stream = statresponse.GetResponseStream())
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    rslt = reader.ReadToEnd();
+                }
+                
+                JObject obj = JObject.Parse(rslt);
+                if (Utilities.getFirstField(obj["status"]).Equals("succeeded", StringComparison.InvariantCultureIgnoreCase))
+                {
+                    foreach (var page in obj["recognitionResults"])
+                    {
+                        foreach (var line in page["lines"])
+                        {
+                            sb.Append(Utilities.getFirstField(line["text"]));
+                            sb.Append("\r\n");
+                        }
+                    }
+                    success = true;
+                }
+                else
+                {
+                    System.Threading.Thread.Sleep(1000);
+                    if (waitcount++ > int.Parse(Utilities.GetEnvironmentVariable("CogServWaitRetries", "3")))
+                    {
+                        sb.Clear();
+                        sb.Append("TIMEOUT~" + oploc);
+                        break;
+                    }
+                }
+            }
+            return sb.ToString();
+        }
+
         public static string ExtractTextUsingTIKA(byte[] byteArray,string tikaserverurl)
         {
-           
+            if (string.IsNullOrEmpty(tikaserverurl)) return "";
             // Create a request using a URL that can receive a post. 
             HttpWebRequest request = (HttpWebRequest)WebRequest.Create(tikaserverurl);
             // Set the Method property of the request to POST.

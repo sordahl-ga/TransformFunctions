@@ -61,7 +61,7 @@ namespace TransformFunctions
                 jobj["ccd"] = ccdobj;
                 if (persist)
                 {
-                    Uri collection = UriFactory.CreateDocumentCollectionUri("hl7json", "ccds");
+                    Uri collection = UriFactory.CreateDocumentCollectionUri(Utilities.GetEnvironmentVariable("CosmosDBNAME", "hl7json"), Utilities.GetEnvironmentVariable("CosmosCCDCollection", "ccds"));
                     var inserted = await client.UpsertDocumentAsync(collection, jobj);
                     Utilities.TraceAccess(log, claimsPrincipal, client, collection, Utilities.ACTION.UPSERT, coid);
                 }

@@ -26,10 +26,10 @@ namespace TransformFunctions
         [FunctionName("NLPExtractEntitiesFile")]
         public static void Run([BlobTrigger("%StorageAccountBlob%/ingest/documents/{name}", Connection = "StorageAccount")]Stream myBlob, string name, ILogger log)
         {
-            log.LogInformation("NLP Extract Entities File triggered by hl7json/ingest/documents/" + name);
+            log.LogInformation("NLP Extract Entities File triggered by ingest/documents/" + name);
             try
             {
-
+               
                 string coid = name;
                 int dirend = coid.LastIndexOf("/");
                 if (dirend > -1) coid = coid.Substring(dirend + 1);
@@ -42,8 +42,20 @@ namespace TransformFunctions
                     myBlob.CopyTo(ms);
                     byteArray = ms.ToArray();
                 }
-                log.LogInformation("Calling TIKA to Extract Text from hl7json/ingest/documents/" + name);
-                string responseFromServer = NLPUtilities.ExtractTextUsingTIKA(byteArray, Utilities.GetEnvironmentVariable("TIKAServerURL"));
+                log.LogInformation("Calling CogServices/TIKA to Extract Text from hl7json/ingest/documents/" + name);
+                string cogurl = Utilities.GetEnvironmentVariable("CogServicesOCRURL");
+                log.LogInformation("Trying CogServices...");
+                string responseFromServer = NLPUtilities.ExtractTextUsingCogServices(byteArray, cogurl, Utilities.GetEnvironmentVariable("CogServicesKey"));
+                if (string.IsNullOrEmpty(responseFromServer))
+                {
+                    log.LogInformation("No extract Trying TIKA...");
+                    responseFromServer = NLPUtilities.ExtractTextUsingTIKA(byteArray, Utilities.GetEnvironmentVariable("TIKAServerurl"));
+                }
+                if (responseFromServer.StartsWith("TIMEOUT~"))
+                {
+                    log.LogTrace("CogServiceExtract Timeout: {\"id\":\"" + coid + "\",\"status\":\"Timeout\",\"readresulturl\":\"" + responseFromServer.Split("~")[1] + "\"}");
+                }
+              
                 //string responseFromServer = System.Text.Encoding.UTF8.GetString(byteArray, 0, byteArray.Length);
                 log.LogInformation("Extracting Medical Reports from hl7json/ingest/documents/" + name);
                 //Extract Reports From Content (Auto-Detect Medical Exchange Formats (CDA, HL7, FHIR))
@@ -63,6 +75,7 @@ namespace TransformFunctions
                     var result = NLPUtilities.ExtractMedicalEntities(creq);
                     result.Id = coid;
                     result.Location = loc;
+                    result.DocumentType = name;
                     retVal.Add(result);
                 }
                 log.LogInformation("Updateing search index with content and medical entities from hl7json/ingest/documents/" + name);
