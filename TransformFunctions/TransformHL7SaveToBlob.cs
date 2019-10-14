@@ -29,6 +29,14 @@ namespace TransformFunctions
 {
     public static class TransformHL7SaveToBlob
     {
+        /* Transforms HL7 to JSON and Stores it to blob in containers by year/month/day/hour/{Type MSH-9}/specified object id or guid.
+         * To Skip Transform send request parameter 'raw' in query string and it will store the HL7 message as sent
+         *
+         * Blob Binding has to be defined in Environment settings
+         * Request should be according to the HAPI HL7OverHTTP Specification: https://hapifhir.github.io/hapi-hl7v2/hapi-hl7overhttp/specification.html
+         * Responds with an MSA ACK/NAK message per the Specification
+         * 
+         */
         [FunctionName("TransformHL7SaveToBlob")]
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
@@ -38,6 +46,8 @@ namespace TransformFunctions
             log.LogInformation("C# TransformSaveToBlob HTTP trigger function fired");
             string coid = req.Query["id"];
             if (coid == null) coid = Guid.NewGuid().ToString();
+            bool raw = req.Query.ContainsKey("raw");
+           
             string requestBody = await new StreamReader(req.Body).ReadToEndAsync();
           
             JObject jobj = null;
@@ -49,7 +59,7 @@ namespace TransformFunctions
                 string ds = now.Year.ToString() + "/" + now.Month.ToString("D2") + "/" + now.Day.ToString("D2") + "/" + now.Hour.ToString("D2");
                 await container.CreateIfNotExistsAsync();
                 CloudBlockBlob blockBlob = container.GetBlockBlobReference(msgtype.ToLower() + "/" + ds + "/" + coid.ToLower() + ".json");
-                using (var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(HL7ToXmlConverter.ConvertToJSON(jobj)), writable: false))
+                using (var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes((raw ? requestBody : HL7ToXmlConverter.ConvertToJSON(jobj))), writable: false))
                 {
                     await blockBlob.UploadFromStreamAsync(stream);
                 }

@@ -32,7 +32,20 @@ namespace TransformFunctions
 {
     public static class TransformHL7SaveToDB
     {
+        /* Transforms HL7 to JSON and Stores it to a cosmosdb extracted mette data is: rhm = Sending Application and Sending Facility
+         * Query Parameters are id:"Unique Document Id (if null one is generated), 
+         *
+         * databaseName Binding has to be defined in Environment settings variable CosmosDBNAME
+         * collectionName Binding has to be defined in Environment settings variable CosmosHL7Collection
+         * 
+         * When using AuthorizationLevel.User will log traceaccess about the prinicipal in the token for access in the db
+         * 
+         * Request should be according to the HAPI HL7OverHTTP Specification: https://hapifhir.github.io/hapi-hl7v2/hapi-hl7overhttp/specification.html
+         * Responds with an MSA ACK/NAK message per the Specification
+         * 
+        */
         [FunctionName("TransformHL7SaveToDB")]
+        
         public static async Task<IActionResult> Run(
             [HttpTrigger(AuthorizationLevel.Function, "post", Route = null)] HttpRequest req,
             [CosmosDB(
@@ -42,6 +55,7 @@ namespace TransformFunctions
             ClaimsPrincipal claimsPrincipal,
             ILogger log)
         {
+          
             string contenttype = string.IsNullOrEmpty(req.ContentType) ? "application/hl7-v2+er7; charset=utf-8" : req.ContentType;
             log.LogInformation("C# TransformSaveToDB HTTP trigger function fired");
             string coid = req.Query["id"];
