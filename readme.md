@@ -6,9 +6,9 @@ Health Data Platform Supporting Transformation Azure Functions
 
 + api/NLPExtractEntitiesHttp -- Runs the NLP Pipeline on any Binary or Text Body posted to function.  The NLP Pipeline will perform OCR on binary files and extract text, process text through the CTAKES NLP Engine for term identification and concept coding. Optionally with request parameter updatesearch=true update the configured Azure Search index with the content and term/concept coding facets.
 
-+ api/TransformHL7SaveToBlob -- Converts HL7 Message contained in posted body to a JSON Object and saves it to the configured blob store.
++ api/TransformHL7SaveToBlob -- Converts HL7 Message contained in posted body to a JSON Object and saves it to the configured blob store. Adding raw to query string will not transform HL7 and store it as received. Follows the HAPI HL7OVERHTTP Specification
 
-+ api/TransformHL7SaveToDB -- Converts HL7 Message contained in posted body to a JSON Object and saves it to the configured CosmosDB collection.
++ api/TransformHL7SaveToDB -- Converts HL7 Message contained in posted body to a JSON Object and saves it to the configured CosmosDB collection. Follows the HAPI HL7OVERHTTP Specification
 
 + api/TransformCCDSaveToDB -- Concerts CCDA Documents contained in posted body to JSON Object and saves it to the configured CosmosDB collection.
 
