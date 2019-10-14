@@ -29,7 +29,7 @@ namespace TransformFunctions
 {
     public static class TransformHL7SaveToBlob
     {
-        /* Transforms HL7 to JSON and Stores it to blob in containers by year/month/day/hour/{Type MSH-9}/specified object id or guid.
+        /* Transforms HL7 to JSON and Stores it to blob in containers by MessageType MSH-9/year/month/day/hour/specified object id or guid.
          * To Skip Transform send request parameter 'raw' in query string and it will store the HL7 message as sent
          *
          * Blob Binding has to be defined in Environment settings
@@ -58,7 +58,7 @@ namespace TransformFunctions
                 string msgtype = (string) jobj["hl7message"]["MSH"]["MSH.9"]["MSH.9.1"];
                 string ds = now.Year.ToString() + "/" + now.Month.ToString("D2") + "/" + now.Day.ToString("D2") + "/" + now.Hour.ToString("D2");
                 await container.CreateIfNotExistsAsync();
-                CloudBlockBlob blockBlob = container.GetBlockBlobReference(msgtype.ToLower() + "/" + ds + "/" + coid.ToLower() + ".json");
+                CloudBlockBlob blockBlob = container.GetBlockBlobReference(msgtype.ToLower() + "/" + ds + "/" + coid.ToLower() + (raw ? ".hl7" : ".json"));
                 using (var stream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes((raw ? requestBody : HL7ToXmlConverter.ConvertToJSON(jobj))), writable: false))
                 {
                     await blockBlob.UploadFromStreamAsync(stream);
